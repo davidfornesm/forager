@@ -9,6 +9,7 @@ description.workspace = true
 publish.workspace = true
 
 [dependencies]
+atoi = "3.1.0"
 itoa = "1.0.18"
 nom = "8.0.0"
 serde = { version = "1.0.228", features = ["derive"] }

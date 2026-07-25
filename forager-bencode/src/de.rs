@@ -1,8 +1,11 @@
 use crate::{Error, Result};
+use atoi::{FromRadix10SignedChecked, atoi};
 use nom::Parser;
 use nom::branch::alt;
 use nom::bytes::tag;
-use nom::combinator::value;
+use nom::character::complete::digit0;
+use nom::character::one_of;
+use nom::combinator::{map_opt, opt, recognize, value};
 use nom::sequence::delimited;
 use serde::de::{DeserializeOwned, Visitor};
 use serde::{Deserialize, de};
@@ -32,51 +35,10 @@ struct Deserializer<'de> {
     source: &'de [u8],
 }
 
-impl<'de> Deserializer<'de> {
-    fn new(source: &'de [u8]) -> Self {
-        Self { source }
-    }
-
-    fn finish(self) -> Result<()> {
-        if self.source.is_empty() {
-            Ok(())
-        } else {
-            Err(Error::Trailing)
-        }
-    }
-
-    fn parse<Output>(
-        &mut self,
-        mut parser: impl Parser<&'de [u8], Output = Output, Error = nom::error::Error<&'de [u8]>>,
-    ) -> Result<Output> {
-        let (rest, output) = parser.parse(self.source)?;
-        self.source = rest;
-        Ok(output)
-    }
-
-    fn number_prefix()
-    -> impl Parser<&'de [u8], Output = &'de [u8], Error = nom::error::Error<&'de [u8]>> {
-        tag("i")
-    }
-
-    fn end_suffix()
-    -> impl Parser<&'de [u8], Output = &'de [u8], Error = nom::error::Error<&'de [u8]>> {
-        tag("e")
-    }
-
-    fn parse_bool(&mut self) -> Result<bool> {
-        self.parse(delimited(
-            Self::number_prefix(),
-            alt((value(false, tag("0")), value(true, tag("1")))),
-            Self::end_suffix(),
-        ))
-    }
-}
-
 impl<'de, 'd> de::Deserializer<'de> for &'d mut Deserializer<'de> {
     type Error = Error;
 
-    fn deserialize_any<V>(self, visitor: V) -> Result<V::Value>
+    fn deserialize_any<V>(self, _visitor: V) -> Result<V::Value>
     where
         V: Visitor<'de>,
     {
@@ -94,143 +56,157 @@ impl<'de, 'd> de::Deserializer<'de> for &'d mut Deserializer<'de> {
     where
         V: Visitor<'de>,
     {
-        todo!()
+        visitor.visit_i8(self.parse_number()?)
     }
 
     fn deserialize_i16<V>(self, visitor: V) -> Result<V::Value>
     where
         V: Visitor<'de>,
     {
-        todo!()
+        visitor.visit_i16(self.parse_number()?)
     }
 
     fn deserialize_i32<V>(self, visitor: V) -> Result<V::Value>
     where
         V: Visitor<'de>,
     {
-        todo!()
+        visitor.visit_i32(self.parse_number()?)
     }
 
     fn deserialize_i64<V>(self, visitor: V) -> Result<V::Value>
     where
         V: Visitor<'de>,
     {
-        todo!()
+        visitor.visit_i64(self.parse_number()?)
+    }
+
+    fn deserialize_i128<V>(self, visitor: V) -> std::result::Result<V::Value, Self::Error>
+    where
+        V: Visitor<'de>,
+    {
+        visitor.visit_i128(self.parse_number()?)
     }
 
     fn deserialize_u8<V>(self, visitor: V) -> Result<V::Value>
     where
         V: Visitor<'de>,
     {
-        todo!()
+        visitor.visit_u8(self.parse_number()?)
     }
 
     fn deserialize_u16<V>(self, visitor: V) -> Result<V::Value>
     where
         V: Visitor<'de>,
     {
-        todo!()
+        visitor.visit_u16(self.parse_number()?)
     }
 
     fn deserialize_u32<V>(self, visitor: V) -> Result<V::Value>
     where
         V: Visitor<'de>,
     {
-        todo!()
+        visitor.visit_u32(self.parse_number()?)
     }
 
     fn deserialize_u64<V>(self, visitor: V) -> Result<V::Value>
     where
         V: Visitor<'de>,
     {
-        todo!()
+        visitor.visit_u64(self.parse_number()?)
     }
 
-    fn deserialize_f32<V>(self, visitor: V) -> Result<V::Value>
+    fn deserialize_u128<V>(self, visitor: V) -> std::result::Result<V::Value, Self::Error>
+    where
+        V: Visitor<'de>,
+    {
+        visitor.visit_u128(self.parse_number()?)
+    }
+
+    fn deserialize_f32<V>(self, _visitor: V) -> Result<V::Value>
+    where
+        V: Visitor<'de>,
+    {
+        Err(Error::NotSupported("f32"))
+    }
+
+    fn deserialize_f64<V>(self, _visitor: V) -> Result<V::Value>
+    where
+        V: Visitor<'de>,
+    {
+        Err(Error::NotSupported("f64"))
+    }
+
+    fn deserialize_char<V>(self, _visitor: V) -> Result<V::Value>
     where
         V: Visitor<'de>,
     {
         todo!()
     }
 
-    fn deserialize_f64<V>(self, visitor: V) -> Result<V::Value>
+    fn deserialize_str<V>(self, _visitor: V) -> Result<V::Value>
     where
         V: Visitor<'de>,
     {
         todo!()
     }
 
-    fn deserialize_char<V>(self, visitor: V) -> Result<V::Value>
+    fn deserialize_string<V>(self, _visitor: V) -> Result<V::Value>
     where
         V: Visitor<'de>,
     {
         todo!()
     }
 
-    fn deserialize_str<V>(self, visitor: V) -> Result<V::Value>
+    fn deserialize_bytes<V>(self, _visitor: V) -> Result<V::Value>
     where
         V: Visitor<'de>,
     {
         todo!()
     }
 
-    fn deserialize_string<V>(self, visitor: V) -> Result<V::Value>
+    fn deserialize_byte_buf<V>(self, _visitor: V) -> Result<V::Value>
     where
         V: Visitor<'de>,
     {
         todo!()
     }
 
-    fn deserialize_bytes<V>(self, visitor: V) -> Result<V::Value>
+    fn deserialize_option<V>(self, _visitor: V) -> Result<V::Value>
     where
         V: Visitor<'de>,
     {
         todo!()
     }
 
-    fn deserialize_byte_buf<V>(self, visitor: V) -> Result<V::Value>
+    fn deserialize_unit<V>(self, _visitor: V) -> Result<V::Value>
     where
         V: Visitor<'de>,
     {
         todo!()
     }
 
-    fn deserialize_option<V>(self, visitor: V) -> Result<V::Value>
+    fn deserialize_unit_struct<V>(self, _name: &'static str, _visitor: V) -> Result<V::Value>
     where
         V: Visitor<'de>,
     {
         todo!()
     }
 
-    fn deserialize_unit<V>(self, visitor: V) -> Result<V::Value>
+    fn deserialize_newtype_struct<V>(self, _name: &'static str, _visitor: V) -> Result<V::Value>
     where
         V: Visitor<'de>,
     {
         todo!()
     }
 
-    fn deserialize_unit_struct<V>(self, name: &'static str, visitor: V) -> Result<V::Value>
+    fn deserialize_seq<V>(self, _visitor: V) -> Result<V::Value>
     where
         V: Visitor<'de>,
     {
         todo!()
     }
 
-    fn deserialize_newtype_struct<V>(self, name: &'static str, visitor: V) -> Result<V::Value>
-    where
-        V: Visitor<'de>,
-    {
-        todo!()
-    }
-
-    fn deserialize_seq<V>(self, visitor: V) -> Result<V::Value>
-    where
-        V: Visitor<'de>,
-    {
-        todo!()
-    }
-
-    fn deserialize_tuple<V>(self, len: usize, visitor: V) -> Result<V::Value>
+    fn deserialize_tuple<V>(self, _len: usize, _visitor: V) -> Result<V::Value>
     where
         V: Visitor<'de>,
     {
@@ -239,9 +215,9 @@ impl<'de, 'd> de::Deserializer<'de> for &'d mut Deserializer<'de> {
 
     fn deserialize_tuple_struct<V>(
         self,
-        name: &'static str,
-        len: usize,
-        visitor: V,
+        _name: &'static str,
+        _len: usize,
+        _visitor: V,
     ) -> Result<V::Value>
     where
         V: Visitor<'de>,
@@ -249,7 +225,7 @@ impl<'de, 'd> de::Deserializer<'de> for &'d mut Deserializer<'de> {
         todo!()
     }
 
-    fn deserialize_map<V>(self, visitor: V) -> Result<V::Value>
+    fn deserialize_map<V>(self, _visitor: V) -> Result<V::Value>
     where
         V: Visitor<'de>,
     {
@@ -258,9 +234,9 @@ impl<'de, 'd> de::Deserializer<'de> for &'d mut Deserializer<'de> {
 
     fn deserialize_struct<V>(
         self,
-        name: &'static str,
-        fields: &'static [&'static str],
-        visitor: V,
+        _name: &'static str,
+        _fields: &'static [&'static str],
+        _visitor: V,
     ) -> Result<V::Value>
     where
         V: Visitor<'de>,
@@ -270,9 +246,9 @@ impl<'de, 'd> de::Deserializer<'de> for &'d mut Deserializer<'de> {
 
     fn deserialize_enum<V>(
         self,
-        name: &'static str,
-        variants: &'static [&'static str],
-        visitor: V,
+        _name: &'static str,
+        _variants: &'static [&'static str],
+        _visitor: V,
     ) -> Result<V::Value>
     where
         V: Visitor<'de>,
@@ -280,17 +256,99 @@ impl<'de, 'd> de::Deserializer<'de> for &'d mut Deserializer<'de> {
         todo!()
     }
 
-    fn deserialize_identifier<V>(self, visitor: V) -> Result<V::Value>
+    fn deserialize_identifier<V>(self, _visitor: V) -> Result<V::Value>
     where
         V: Visitor<'de>,
     {
         todo!()
     }
 
-    fn deserialize_ignored_any<V>(self, visitor: V) -> Result<V::Value>
+    fn deserialize_ignored_any<V>(self, _visitor: V) -> Result<V::Value>
     where
         V: Visitor<'de>,
     {
         todo!()
+    }
+
+    fn is_human_readable(&self) -> bool {
+        false
+    }
+}
+
+impl<'de> Deserializer<'de> {
+    fn new(source: &'de [u8]) -> Self {
+        Self { source }
+    }
+
+    fn finish(self) -> Result<()> {
+        if self.source.is_empty() {
+            Ok(())
+        } else {
+            Err(Error::Trailing)
+        }
+    }
+
+    fn parse<O>(
+        &mut self,
+        mut parser: impl Parser<&'de [u8], Output = O, Error = nom::error::Error<&'de [u8]>>,
+    ) -> Result<O> {
+        let (rest, output) = parser.parse(self.source)?;
+        self.source = rest;
+        Ok(output)
+    }
+
+    fn parse_bool(&mut self) -> Result<bool> {
+        self.parse(Self::number_delimited(alt((
+            value(false, Self::zero()),
+            value(true, Self::one()),
+        ))))
+    }
+
+    fn parse_number<N>(&mut self) -> Result<N>
+    where
+        N: FromRadix10SignedChecked,
+    {
+        self.parse(Self::number_delimited(map_opt(
+            alt((Self::zero(), Self::nonzero_signed())),
+            atoi,
+        )))
+    }
+
+    fn number_prefix()
+    -> impl Parser<&'de [u8], Output = &'de [u8], Error = nom::error::Error<&'de [u8]>> {
+        tag("i")
+    }
+
+    fn end_suffix()
+    -> impl Parser<&'de [u8], Output = &'de [u8], Error = nom::error::Error<&'de [u8]>> {
+        tag("e")
+    }
+
+    fn number_delimited<O>(
+        inner: impl Parser<&'de [u8], Output = O, Error = nom::error::Error<&'de [u8]>>,
+    ) -> impl Parser<&'de [u8], Output = O, Error = nom::error::Error<&'de [u8]>> {
+        delimited(Self::number_prefix(), inner, Self::end_suffix())
+    }
+
+    fn nonzero_unsigned()
+    -> impl Parser<&'de [u8], Output = &'de [u8], Error = nom::error::Error<&'de [u8]>> {
+        recognize((one_of("123456789"), digit0))
+    }
+
+    fn nonzero_signed()
+    -> impl Parser<&'de [u8], Output = &'de [u8], Error = nom::error::Error<&'de [u8]>> {
+        recognize((opt(Self::minus()), Self::nonzero_unsigned()))
+    }
+
+    fn zero() -> impl Parser<&'de [u8], Output = &'de [u8], Error = nom::error::Error<&'de [u8]>> {
+        tag("0")
+    }
+
+    fn one() -> impl Parser<&'de [u8], Output = &'de [u8], Error = nom::error::Error<&'de [u8]>> {
+        tag("1")
+    }
+
+    fn minus() -> impl Parser<&'de [u8], Output = &'de [u8], Error = nom::error::Error<&'de [u8]>> {
+        tag("-")
     }
 }

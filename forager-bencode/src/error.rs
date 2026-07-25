@@ -9,7 +9,7 @@ pub enum Error {
     ExpectedValue,
     UnsortedKey,
     DuplicateKey,
-    Syntax,
+    Parse,
     Trailing,
     Eof,
 }
@@ -29,7 +29,7 @@ impl Display for Error {
             Error::ExpectedValue => f.write_str("expected value"),
             Error::Trailing => f.write_str("trailing"),
             Error::Eof => f.write_str("eof"),
-            Error::Syntax => f.write_str("syntax"),
+            Error::Parse => f.write_str("parse"),
         }
     }
 }
@@ -44,7 +44,7 @@ impl<'a> From<nom::Err<nom::error::Error<&'a [u8]>>> for Error {
     fn from(value: nom::Err<nom::error::Error<&'a [u8]>>) -> Self {
         match value {
             nom::Err::Incomplete(_) => Error::Eof,
-            nom::Err::Error(_) | nom::Err::Failure(_) => Error::Syntax,
+            nom::Err::Error(_) | nom::Err::Failure(_) => Error::Parse,
         }
     }
 }
