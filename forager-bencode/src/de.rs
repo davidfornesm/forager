@@ -2,14 +2,15 @@ use crate::{Error, Result};
 use atoi::{FromRadix10SignedChecked, atoi};
 use nom::Parser;
 use nom::branch::alt;
-use nom::bytes::tag;
+use nom::bytes::{tag, take};
 use nom::character::complete::digit0;
 use nom::character::one_of;
-use nom::combinator::{map_opt, opt, recognize, value};
-use nom::sequence::delimited;
+use nom::combinator::{flat_map, map_opt, opt, recognize, value};
+use nom::sequence::{delimited, terminated};
 use serde::de::{DeserializeOwned, Visitor};
 use serde::{Deserialize, de};
 use std::io::Read;
+use std::str::from_utf8;
 
 pub fn from_reader<R, T>(mut reader: R) -> Result<T>
 where
@@ -143,25 +144,25 @@ impl<'de, 'd> de::Deserializer<'de> for &'d mut Deserializer<'de> {
         todo!()
     }
 
-    fn deserialize_str<V>(self, _visitor: V) -> Result<V::Value>
+    fn deserialize_str<V>(self, visitor: V) -> Result<V::Value>
     where
         V: Visitor<'de>,
     {
-        todo!()
+        visitor.visit_borrowed_str(self.parse_str()?)
     }
 
-    fn deserialize_string<V>(self, _visitor: V) -> Result<V::Value>
+    fn deserialize_string<V>(self, visitor: V) -> Result<V::Value>
     where
         V: Visitor<'de>,
     {
-        todo!()
+        self.deserialize_str(visitor)
     }
 
-    fn deserialize_bytes<V>(self, _visitor: V) -> Result<V::Value>
+    fn deserialize_bytes<V>(self, visitor: V) -> Result<V::Value>
     where
         V: Visitor<'de>,
     {
-        todo!()
+        visitor.visit_borrowed_bytes(self.parse_bytes()?)
     }
 
     fn deserialize_byte_buf<V>(self, _visitor: V) -> Result<V::Value>
@@ -308,10 +309,18 @@ impl<'de> Deserializer<'de> {
     where
         N: FromRadix10SignedChecked,
     {
-        self.parse(Self::number_delimited(map_opt(
-            alt((Self::zero(), Self::nonzero_signed())),
-            atoi,
-        )))
+        self.parse(Self::number_delimited(Self::number_signed()))
+    }
+
+    fn parse_bytes(&mut self) -> Result<&'de [u8]> {
+        self.parse(flat_map(terminated(
+            Self::number_unsigned::<usize>(),
+            Self::colon()
+        ), take))
+    }
+
+    fn parse_str(&mut self) -> Result<&'de str> {
+        Ok(from_utf8(self.parse_bytes()?)?)
     }
 
     fn number_prefix()
@@ -324,10 +333,24 @@ impl<'de> Deserializer<'de> {
         tag("e")
     }
 
+    fn colon() -> impl Parser<&'de [u8], Output = &'de [u8], Error = nom::error::Error<&'de [u8]>> {
+        tag(":")
+    }
+
     fn number_delimited<O>(
         inner: impl Parser<&'de [u8], Output = O, Error = nom::error::Error<&'de [u8]>>,
     ) -> impl Parser<&'de [u8], Output = O, Error = nom::error::Error<&'de [u8]>> {
         delimited(Self::number_prefix(), inner, Self::end_suffix())
+    }
+
+    fn number_signed<O: FromRadix10SignedChecked>()
+    -> impl Parser<&'de [u8], Output = O, Error = nom::error::Error<&'de [u8]>> {
+        map_opt(alt((Self::zero(), Self::nonzero_signed())), atoi)
+    }
+
+    fn number_unsigned<O: FromRadix10SignedChecked>()
+        -> impl Parser<&'de [u8], Output = O, Error = nom::error::Error<&'de [u8]>> {
+        map_opt(alt((Self::zero(), Self::nonzero_unsigned())), atoi)
     }
 
     fn nonzero_unsigned()

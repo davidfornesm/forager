@@ -76,3 +76,17 @@ fn deserialize_u128() {
     let result = from_bytes::<u128>(source);
     assert_eq!(result.unwrap(), 0);
 }
+
+#[test]
+fn deserialize_bytes() {
+    let source = b"1:a";
+    let result = from_bytes::<&[u8]>(source);
+    assert_eq!(result.unwrap(), b"a")
+}
+
+#[test]
+fn deserializer_str() {
+    let source = b"1:a";
+    let result = from_bytes::<&str>(source);
+    assert_eq!(result.unwrap(), "a")
+}

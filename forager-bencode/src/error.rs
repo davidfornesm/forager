@@ -40,6 +40,12 @@ impl From<std::io::Error> for Error {
     }
 }
 
+impl From<std::str::Utf8Error> for Error {
+    fn from(_value: std::str::Utf8Error) -> Self {
+        Error::Parse
+    }
+}
+
 impl<'a> From<nom::Err<nom::error::Error<&'a [u8]>>> for Error {
     fn from(value: nom::Err<nom::error::Error<&'a [u8]>>) -> Self {
         match value {
