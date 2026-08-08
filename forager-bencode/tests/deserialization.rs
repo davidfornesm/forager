@@ -78,15 +78,29 @@ fn deserialize_u128() {
 }
 
 #[test]
-fn deserialize_bytes() {
+fn deserialize_char() {
     let source = b"1:a";
-    let result = from_bytes::<&[u8]>(source);
-    assert_eq!(result.unwrap(), b"a")
+    let result = from_bytes::<char>(source);
+    assert_eq!(result.unwrap(), 'a');
 }
 
 #[test]
-fn deserializer_str() {
+fn deserialize_str() {
     let source = b"1:a";
     let result = from_bytes::<&str>(source);
-    assert_eq!(result.unwrap(), "a")
+    assert_eq!(result.unwrap(), "a");
+}
+
+#[test]
+fn deserialize_string() {
+    let source = b"1:a";
+    let result = from_bytes::<String>(source);
+    assert_eq!(result.unwrap(), "a");
+}
+
+#[test]
+fn deserialize_bytes() {
+    let source = b"1:a";
+    let result = from_bytes::<&[u8]>(source);
+    assert_eq!(result.unwrap(), b"a");
 }

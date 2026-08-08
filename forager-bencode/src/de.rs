@@ -137,11 +137,11 @@ impl<'de, 'd> de::Deserializer<'de> for &'d mut Deserializer<'de> {
         Err(Error::NotSupported("f64"))
     }
 
-    fn deserialize_char<V>(self, _visitor: V) -> Result<V::Value>
+    fn deserialize_char<V>(self, visitor: V) -> Result<V::Value>
     where
         V: Visitor<'de>,
     {
-        todo!()
+        self.deserialize_str(visitor)
     }
 
     fn deserialize_str<V>(self, visitor: V) -> Result<V::Value>
