@@ -66,19 +66,19 @@ impl<'s, W: Write> ser::Serializer for &'s mut Serializer<W> {
     type SerializeStructVariant = VariantSerializer<MapSerializer<'s, W>>;
 
     fn serialize_bool(self, v: bool) -> Result<Self::Ok> {
-        self.write_number::<u8>(v.into())
+        self.serialize_i64(v.into())
     }
 
     fn serialize_i8(self, v: i8) -> Result<Self::Ok> {
-        self.write_number(v)
+        self.serialize_i64(v.into())
     }
 
     fn serialize_i16(self, v: i16) -> Result<Self::Ok> {
-        self.write_number(v)
+        self.serialize_i64(v.into())
     }
 
     fn serialize_i32(self, v: i32) -> Result<Self::Ok> {
-        self.write_number(v)
+        self.serialize_i64(v.into())
     }
 
     fn serialize_i64(self, v: i64) -> Result<Self::Ok> {
@@ -86,27 +86,27 @@ impl<'s, W: Write> ser::Serializer for &'s mut Serializer<W> {
     }
 
     fn serialize_i128(self, v: i128) -> Result<Self::Ok> {
-        self.write_number(v)
+        self.serialize_i64(v.try_into()?)
     }
 
     fn serialize_u8(self, v: u8) -> Result<Self::Ok> {
-        self.write_number(v)
+        self.serialize_i64(v.into())
     }
 
     fn serialize_u16(self, v: u16) -> Result<Self::Ok> {
-        self.write_number(v)
+        self.serialize_i64(v.into())
     }
 
     fn serialize_u32(self, v: u32) -> Result<Self::Ok> {
-        self.write_number(v)
+        self.serialize_i64(v.into())
     }
 
     fn serialize_u64(self, v: u64) -> Result<Self::Ok> {
-        self.write_number(v)
+        self.serialize_i64(v.try_into()?)
     }
 
     fn serialize_u128(self, v: u128) -> Result<Self::Ok> {
-        self.write_number(v)
+        self.serialize_i64(v.try_into()?)
     }
 
     fn serialize_f32(self, _v: f32) -> Result<Self::Ok> {
@@ -544,17 +544,14 @@ impl<W: Write> Serializer<W> {
         Self { writer }
     }
 
-    fn write_number<I: itoa::Integer>(&mut self, number: I) -> Result<()> {
+    fn write_number(&mut self, number: i64) -> Result<()> {
         self.write_number_prefix()?;
-        let mut buffer = itoa::Buffer::new();
-        self.writer.write_all(buffer.format(number).as_bytes())?;
+        write!(self.writer, "{}", number)?;
         self.write_end_suffix()
     }
 
     fn write_bytes(&mut self, bytes: &[u8]) -> Result<()> {
-        let mut buffer = itoa::Buffer::new();
-        self.writer
-            .write_all(buffer.format(bytes.len()).as_bytes())?;
+        write!(self.writer, "{}", bytes.len())?;
         self.writer.write_all(b":")?;
         self.writer.write_all(bytes)?;
         Ok(())

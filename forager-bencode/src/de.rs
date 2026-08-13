@@ -1,11 +1,10 @@
 use crate::{Error, Result};
-use atoi::{FromRadix10SignedChecked, atoi};
 use nom::Parser;
 use nom::branch::alt;
 use nom::bytes::{tag, take};
-use nom::character::complete::digit0;
+use nom::character::complete::{digit0, i64, usize};
 use nom::character::one_of;
-use nom::combinator::{flat_map, map_opt, opt, recognize, value};
+use nom::combinator::{flat_map, map_parser, opt, recognize, value};
 use nom::sequence::{delimited, terminated};
 use serde::de::{DeserializeOwned, Visitor};
 use serde::{Deserialize, de};
@@ -57,21 +56,21 @@ impl<'de, 'd> de::Deserializer<'de> for &'d mut Deserializer<'de> {
     where
         V: Visitor<'de>,
     {
-        visitor.visit_i8(self.parse_number()?)
+        self.deserialize_i64(visitor)
     }
 
     fn deserialize_i16<V>(self, visitor: V) -> Result<V::Value>
     where
         V: Visitor<'de>,
     {
-        visitor.visit_i16(self.parse_number()?)
+        self.deserialize_i64(visitor)
     }
 
     fn deserialize_i32<V>(self, visitor: V) -> Result<V::Value>
     where
         V: Visitor<'de>,
     {
-        visitor.visit_i32(self.parse_number()?)
+        self.deserialize_i64(visitor)
     }
 
     fn deserialize_i64<V>(self, visitor: V) -> Result<V::Value>
@@ -85,42 +84,42 @@ impl<'de, 'd> de::Deserializer<'de> for &'d mut Deserializer<'de> {
     where
         V: Visitor<'de>,
     {
-        visitor.visit_i128(self.parse_number()?)
+        self.deserialize_i64(visitor)
     }
 
     fn deserialize_u8<V>(self, visitor: V) -> Result<V::Value>
     where
         V: Visitor<'de>,
     {
-        visitor.visit_u8(self.parse_number()?)
+        self.deserialize_i64(visitor)
     }
 
     fn deserialize_u16<V>(self, visitor: V) -> Result<V::Value>
     where
         V: Visitor<'de>,
     {
-        visitor.visit_u16(self.parse_number()?)
+        self.deserialize_i64(visitor)
     }
 
     fn deserialize_u32<V>(self, visitor: V) -> Result<V::Value>
     where
         V: Visitor<'de>,
     {
-        visitor.visit_u32(self.parse_number()?)
+        self.deserialize_i64(visitor)
     }
 
     fn deserialize_u64<V>(self, visitor: V) -> Result<V::Value>
     where
         V: Visitor<'de>,
     {
-        visitor.visit_u64(self.parse_number()?)
+        self.deserialize_i64(visitor)
     }
 
     fn deserialize_u128<V>(self, visitor: V) -> std::result::Result<V::Value, Self::Error>
     where
         V: Visitor<'de>,
     {
-        visitor.visit_u128(self.parse_number()?)
+        self.deserialize_i64(visitor)
     }
 
     fn deserialize_f32<V>(self, _visitor: V) -> Result<V::Value>
@@ -305,18 +304,12 @@ impl<'de> Deserializer<'de> {
         ))))
     }
 
-    fn parse_number<N>(&mut self) -> Result<N>
-    where
-        N: FromRadix10SignedChecked,
-    {
-        self.parse(Self::number_delimited(Self::number_signed()))
+    fn parse_number(&mut self) -> Result<i64> {
+        self.parse(Self::number_delimited(Self::integer()))
     }
 
     fn parse_bytes(&mut self) -> Result<&'de [u8]> {
-        self.parse(flat_map(terminated(
-            Self::number_unsigned::<usize>(),
-            Self::colon()
-        ), take))
+        self.parse(flat_map(terminated(Self::length(), Self::colon()), take))
     }
 
     fn parse_str(&mut self) -> Result<&'de str> {
@@ -343,24 +336,22 @@ impl<'de> Deserializer<'de> {
         delimited(Self::number_prefix(), inner, Self::end_suffix())
     }
 
-    fn number_signed<O: FromRadix10SignedChecked>()
-    -> impl Parser<&'de [u8], Output = O, Error = nom::error::Error<&'de [u8]>> {
-        map_opt(alt((Self::zero(), Self::nonzero_signed())), atoi)
+    fn integer() -> impl Parser<&'de [u8], Output = i64, Error = nom::error::Error<&'de [u8]>> {
+        map_parser(alt((Self::zero(), Self::nonzero())), i64)
     }
 
-    fn number_unsigned<O: FromRadix10SignedChecked>()
-        -> impl Parser<&'de [u8], Output = O, Error = nom::error::Error<&'de [u8]>> {
-        map_opt(alt((Self::zero(), Self::nonzero_unsigned())), atoi)
+    fn length() -> impl Parser<&'de [u8], Output = usize, Error = nom::error::Error<&'de [u8]>> {
+        map_parser(alt((Self::zero(), Self::natural())), usize)
     }
 
-    fn nonzero_unsigned()
-    -> impl Parser<&'de [u8], Output = &'de [u8], Error = nom::error::Error<&'de [u8]>> {
+    fn natural() -> impl Parser<&'de [u8], Output = &'de [u8], Error = nom::error::Error<&'de [u8]>>
+    {
         recognize((one_of("123456789"), digit0))
     }
 
-    fn nonzero_signed()
-    -> impl Parser<&'de [u8], Output = &'de [u8], Error = nom::error::Error<&'de [u8]>> {
-        recognize((opt(Self::minus()), Self::nonzero_unsigned()))
+    fn nonzero() -> impl Parser<&'de [u8], Output = &'de [u8], Error = nom::error::Error<&'de [u8]>>
+    {
+        recognize((opt(Self::minus()), Self::natural()))
     }
 
     fn zero() -> impl Parser<&'de [u8], Output = &'de [u8], Error = nom::error::Error<&'de [u8]>> {

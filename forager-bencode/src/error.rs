@@ -12,6 +12,7 @@ pub enum Error {
     Parse,
     Trailing,
     Eof,
+    Unrepresentable,
 }
 
 pub type Result<T> = std::result::Result<T, Error>;
@@ -30,6 +31,7 @@ impl Display for Error {
             Error::Trailing => f.write_str("trailing"),
             Error::Eof => f.write_str("eof"),
             Error::Parse => f.write_str("parse"),
+            Error::Unrepresentable => f.write_str("unrepresentable"),
         }
     }
 }
@@ -43,6 +45,12 @@ impl From<std::io::Error> for Error {
 impl From<std::str::Utf8Error> for Error {
     fn from(_value: std::str::Utf8Error) -> Self {
         Error::Parse
+    }
+}
+
+impl From<std::num::TryFromIntError> for Error {
+    fn from(_value: std::num::TryFromIntError) -> Self {
+        Error::Unrepresentable
     }
 }
 
