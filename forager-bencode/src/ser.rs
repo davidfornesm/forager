@@ -118,8 +118,7 @@ impl<'s, W: Write> ser::Serializer for &'s mut Serializer<W> {
     }
 
     fn serialize_char(self, v: char) -> Result<Self::Ok> {
-        let mut buffer = [0u8; 4];
-        self.serialize_str(v.encode_utf8(&mut buffer))
+        Err(Error::NotSupported("char"))
     }
 
     fn serialize_str(self, v: &str) -> Result<Self::Ok> {

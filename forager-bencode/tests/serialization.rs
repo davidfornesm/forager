@@ -98,7 +98,7 @@ fn serialize_f64() {
 fn serialize_char() {
     let value: char = 'a';
     let result = to_bytes(&value);
-    assert_eq!(result.unwrap(), b"1:a");
+    assert_matches!(result.unwrap_err(), Error::NotSupported("char"));
 }
 
 #[test]
