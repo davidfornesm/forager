@@ -1,3 +1,4 @@
+use crate::parser::{bytes, number};
 use crate::{Error, Result};
 use nom::Parser;
 use nom::branch::alt;
@@ -297,56 +298,10 @@ impl<'de> Deserializer<'de> {
     }
 
     fn parse_number(&mut self) -> Result<i64> {
-        self.parse(Self::number_delimited(Self::integer()))
+        self.parse(number())
     }
 
     fn parse_bytes(&mut self) -> Result<&'de [u8]> {
-        self.parse(flat_map(terminated(Self::length(), Self::colon()), take))
-    }
-
-    fn number_prefix()
-    -> impl Parser<&'de [u8], Output = &'de [u8], Error = nom::error::Error<&'de [u8]>> {
-        tag("i")
-    }
-
-    fn end_suffix()
-    -> impl Parser<&'de [u8], Output = &'de [u8], Error = nom::error::Error<&'de [u8]>> {
-        tag("e")
-    }
-
-    fn colon() -> impl Parser<&'de [u8], Output = &'de [u8], Error = nom::error::Error<&'de [u8]>> {
-        tag(":")
-    }
-
-    fn number_delimited<O>(
-        inner: impl Parser<&'de [u8], Output = O, Error = nom::error::Error<&'de [u8]>>,
-    ) -> impl Parser<&'de [u8], Output = O, Error = nom::error::Error<&'de [u8]>> {
-        delimited(Self::number_prefix(), inner, Self::end_suffix())
-    }
-
-    fn integer() -> impl Parser<&'de [u8], Output = i64, Error = nom::error::Error<&'de [u8]>> {
-        map_parser(alt((Self::zero(), Self::nonzero())), i64)
-    }
-
-    fn length() -> impl Parser<&'de [u8], Output = usize, Error = nom::error::Error<&'de [u8]>> {
-        map_parser(alt((Self::zero(), Self::natural())), usize)
-    }
-
-    fn natural() -> impl Parser<&'de [u8], Output = &'de [u8], Error = nom::error::Error<&'de [u8]>>
-    {
-        recognize((one_of("123456789"), digit0))
-    }
-
-    fn nonzero() -> impl Parser<&'de [u8], Output = &'de [u8], Error = nom::error::Error<&'de [u8]>>
-    {
-        recognize((opt(Self::minus()), Self::natural()))
-    }
-
-    fn zero() -> impl Parser<&'de [u8], Output = &'de [u8], Error = nom::error::Error<&'de [u8]>> {
-        tag("0")
-    }
-
-    fn minus() -> impl Parser<&'de [u8], Output = &'de [u8], Error = nom::error::Error<&'de [u8]>> {
-        tag("-")
+        self.parse(bytes())
     }
 }
