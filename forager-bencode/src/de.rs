@@ -9,7 +9,6 @@ use nom::sequence::{delimited, terminated};
 use serde::de::{DeserializeOwned, Visitor};
 use serde::{Deserialize, de};
 use std::io::Read;
-use std::str::from_utf8;
 
 pub fn from_reader<R, T>(mut reader: R) -> Result<T>
 where
@@ -45,11 +44,11 @@ impl<'de, 'd> de::Deserializer<'de> for &'d mut Deserializer<'de> {
         todo!()
     }
 
-    fn deserialize_bool<V>(self, visitor: V) -> Result<V::Value>
+    fn deserialize_bool<V>(self, _visitor: V) -> Result<V::Value>
     where
         V: Visitor<'de>,
     {
-        visitor.visit_bool(self.parse_bool()?)
+        Err(Error::NotSupported("bool"))
     }
 
     fn deserialize_i8<V>(self, visitor: V) -> Result<V::Value>
@@ -136,18 +135,18 @@ impl<'de, 'd> de::Deserializer<'de> for &'d mut Deserializer<'de> {
         Err(Error::NotSupported("f64"))
     }
 
-    fn deserialize_char<V>(self, visitor: V) -> Result<V::Value>
+    fn deserialize_char<V>(self, _visitor: V) -> Result<V::Value>
     where
         V: Visitor<'de>,
     {
-        self.deserialize_str(visitor)
+        Err(Error::NotSupported("char"))
     }
 
     fn deserialize_str<V>(self, visitor: V) -> Result<V::Value>
     where
         V: Visitor<'de>,
     {
-        visitor.visit_borrowed_str(self.parse_str()?)
+        self.deserialize_bytes(visitor)
     }
 
     fn deserialize_string<V>(self, visitor: V) -> Result<V::Value>
@@ -164,11 +163,11 @@ impl<'de, 'd> de::Deserializer<'de> for &'d mut Deserializer<'de> {
         visitor.visit_borrowed_bytes(self.parse_bytes()?)
     }
 
-    fn deserialize_byte_buf<V>(self, _visitor: V) -> Result<V::Value>
+    fn deserialize_byte_buf<V>(self, visitor: V) -> Result<V::Value>
     where
         V: Visitor<'de>,
     {
-        todo!()
+        self.deserialize_bytes(visitor)
     }
 
     fn deserialize_option<V>(self, _visitor: V) -> Result<V::Value>
@@ -297,23 +296,12 @@ impl<'de> Deserializer<'de> {
         Ok(output)
     }
 
-    fn parse_bool(&mut self) -> Result<bool> {
-        self.parse(Self::number_delimited(alt((
-            value(false, Self::zero()),
-            value(true, Self::one()),
-        ))))
-    }
-
     fn parse_number(&mut self) -> Result<i64> {
         self.parse(Self::number_delimited(Self::integer()))
     }
 
     fn parse_bytes(&mut self) -> Result<&'de [u8]> {
         self.parse(flat_map(terminated(Self::length(), Self::colon()), take))
-    }
-
-    fn parse_str(&mut self) -> Result<&'de str> {
-        Ok(from_utf8(self.parse_bytes()?)?)
     }
 
     fn number_prefix()
@@ -356,10 +344,6 @@ impl<'de> Deserializer<'de> {
 
     fn zero() -> impl Parser<&'de [u8], Output = &'de [u8], Error = nom::error::Error<&'de [u8]>> {
         tag("0")
-    }
-
-    fn one() -> impl Parser<&'de [u8], Output = &'de [u8], Error = nom::error::Error<&'de [u8]>> {
-        tag("1")
     }
 
     fn minus() -> impl Parser<&'de [u8], Output = &'de [u8], Error = nom::error::Error<&'de [u8]>> {

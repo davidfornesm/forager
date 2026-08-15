@@ -66,7 +66,7 @@ impl<'s, W: Write> ser::Serializer for &'s mut Serializer<W> {
     type SerializeStructVariant = VariantSerializer<MapSerializer<'s, W>>;
 
     fn serialize_bool(self, v: bool) -> Result<Self::Ok> {
-        self.serialize_i64(v.into())
+        Err(Error::NotSupported("bool"))
     }
 
     fn serialize_i8(self, v: i8) -> Result<Self::Ok> {

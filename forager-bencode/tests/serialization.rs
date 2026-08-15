@@ -7,7 +7,7 @@ use std::collections::BTreeMap;
 fn serialize_bool() {
     let value: bool = false;
     let result = to_bytes(&value);
-    assert_eq!(result.unwrap(), b"i0e");
+    assert_matches!(result.unwrap_err(), Error::NotSupported("bool"));
 }
 
 #[test]

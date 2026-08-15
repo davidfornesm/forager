@@ -1,10 +1,11 @@
-use forager_bencode::from_bytes;
+use std::assert_matches;
+use forager_bencode::{from_bytes, Error};
 
 #[test]
 fn deserialize_bool() {
     let source = b"i0e";
     let result = from_bytes::<bool>(source);
-    assert_eq!(result.unwrap(), false);
+    assert_matches!(result.unwrap_err(), Error::NotSupported("bool"));
 }
 
 #[test]
@@ -81,7 +82,7 @@ fn deserialize_u128() {
 fn deserialize_char() {
     let source = b"1:a";
     let result = from_bytes::<char>(source);
-    assert_eq!(result.unwrap(), 'a');
+    assert_matches!(result.unwrap_err(), Error::NotSupported("char"));
 }
 
 #[test]
