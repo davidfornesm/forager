@@ -39,7 +39,7 @@ impl<'de, 'd> de::Deserializer<'de> for &'d mut Deserializer<'de> {
     {
         match self.peek()? {
             b'i' => visitor.visit_i64(self.parse_number()?),
-            b'0'..b'9' => visitor.visit_borrowed_bytes(self.parse_bytes()?),
+            b'0'..=b'9' => visitor.visit_borrowed_bytes(self.parse_bytes()?),
             _ => Err(Error::Syntax),
         }
     }
