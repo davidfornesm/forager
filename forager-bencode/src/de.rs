@@ -1,15 +1,10 @@
-use crate::parser::{bytes, number};
+use crate::parser::{bool, bytes, number};
 use crate::{Error, Result};
 use nom::Parser;
-use nom::branch::alt;
-use nom::bytes::{tag, take};
-use nom::character::complete::{digit0, i64, usize};
-use nom::character::one_of;
-use nom::combinator::{flat_map, map_parser, opt, recognize, value};
-use nom::sequence::{delimited, terminated};
 use serde::de::{DeserializeOwned, Visitor};
-use serde::{Deserialize, de};
+use serde::{Deserialize, de, forward_to_deserialize_any};
 use std::io::Read;
+use std::str::from_utf8;
 
 pub fn from_reader<R, T>(mut reader: R) -> Result<T>
 where
@@ -38,89 +33,25 @@ struct Deserializer<'de> {
 impl<'de, 'd> de::Deserializer<'de> for &'d mut Deserializer<'de> {
     type Error = Error;
 
-    fn deserialize_any<V>(self, _visitor: V) -> Result<V::Value>
+    fn deserialize_any<V>(self, visitor: V) -> Result<V::Value>
     where
         V: Visitor<'de>,
     {
-        todo!()
+        match self.peek()? {
+            b'i' => visitor.visit_i64(self.parse_number()?),
+            b'0'..b'9' => visitor.visit_borrowed_bytes(self.parse_bytes()?),
+            _ => Err(Error::Syntax),
+        }
     }
 
-    fn deserialize_bool<V>(self, _visitor: V) -> Result<V::Value>
+    fn deserialize_bool<V>(self, visitor: V) -> Result<V::Value>
     where
         V: Visitor<'de>,
     {
-        Err(Error::NotSupported("bool"))
+        visitor.visit_bool(self.parse_bool()?)
     }
 
-    fn deserialize_i8<V>(self, visitor: V) -> Result<V::Value>
-    where
-        V: Visitor<'de>,
-    {
-        self.deserialize_i64(visitor)
-    }
-
-    fn deserialize_i16<V>(self, visitor: V) -> Result<V::Value>
-    where
-        V: Visitor<'de>,
-    {
-        self.deserialize_i64(visitor)
-    }
-
-    fn deserialize_i32<V>(self, visitor: V) -> Result<V::Value>
-    where
-        V: Visitor<'de>,
-    {
-        self.deserialize_i64(visitor)
-    }
-
-    fn deserialize_i64<V>(self, visitor: V) -> Result<V::Value>
-    where
-        V: Visitor<'de>,
-    {
-        visitor.visit_i64(self.parse_number()?)
-    }
-
-    fn deserialize_i128<V>(self, visitor: V) -> std::result::Result<V::Value, Self::Error>
-    where
-        V: Visitor<'de>,
-    {
-        self.deserialize_i64(visitor)
-    }
-
-    fn deserialize_u8<V>(self, visitor: V) -> Result<V::Value>
-    where
-        V: Visitor<'de>,
-    {
-        self.deserialize_i64(visitor)
-    }
-
-    fn deserialize_u16<V>(self, visitor: V) -> Result<V::Value>
-    where
-        V: Visitor<'de>,
-    {
-        self.deserialize_i64(visitor)
-    }
-
-    fn deserialize_u32<V>(self, visitor: V) -> Result<V::Value>
-    where
-        V: Visitor<'de>,
-    {
-        self.deserialize_i64(visitor)
-    }
-
-    fn deserialize_u64<V>(self, visitor: V) -> Result<V::Value>
-    where
-        V: Visitor<'de>,
-    {
-        self.deserialize_i64(visitor)
-    }
-
-    fn deserialize_u128<V>(self, visitor: V) -> std::result::Result<V::Value, Self::Error>
-    where
-        V: Visitor<'de>,
-    {
-        self.deserialize_i64(visitor)
-    }
+    forward_to_deserialize_any!(i8 i16 i32 i64 i128 u8 u16 u32 u64 u128);
 
     fn deserialize_f32<V>(self, _visitor: V) -> Result<V::Value>
     where
@@ -136,18 +67,18 @@ impl<'de, 'd> de::Deserializer<'de> for &'d mut Deserializer<'de> {
         Err(Error::NotSupported("f64"))
     }
 
-    fn deserialize_char<V>(self, _visitor: V) -> Result<V::Value>
+    fn deserialize_char<V>(self, visitor: V) -> Result<V::Value>
     where
         V: Visitor<'de>,
     {
-        Err(Error::NotSupported("char"))
+        self.deserialize_str(visitor)
     }
 
     fn deserialize_str<V>(self, visitor: V) -> Result<V::Value>
     where
         V: Visitor<'de>,
     {
-        self.deserialize_bytes(visitor)
+        visitor.visit_borrowed_str(self.parse_str()?)
     }
 
     fn deserialize_string<V>(self, visitor: V) -> Result<V::Value>
@@ -157,19 +88,7 @@ impl<'de, 'd> de::Deserializer<'de> for &'d mut Deserializer<'de> {
         self.deserialize_str(visitor)
     }
 
-    fn deserialize_bytes<V>(self, visitor: V) -> Result<V::Value>
-    where
-        V: Visitor<'de>,
-    {
-        visitor.visit_borrowed_bytes(self.parse_bytes()?)
-    }
-
-    fn deserialize_byte_buf<V>(self, visitor: V) -> Result<V::Value>
-    where
-        V: Visitor<'de>,
-    {
-        self.deserialize_bytes(visitor)
-    }
+    forward_to_deserialize_any!(bytes byte_buf);
 
     fn deserialize_option<V>(self, _visitor: V) -> Result<V::Value>
     where
@@ -288,6 +207,10 @@ impl<'de> Deserializer<'de> {
         }
     }
 
+    fn peek(&self) -> Result<&u8> {
+        self.source.first().ok_or(Error::Eof)
+    }
+
     fn parse<O>(
         &mut self,
         mut parser: impl Parser<&'de [u8], Output = O, Error = nom::error::Error<&'de [u8]>>,
@@ -303,5 +226,13 @@ impl<'de> Deserializer<'de> {
 
     fn parse_bytes(&mut self) -> Result<&'de [u8]> {
         self.parse(bytes())
+    }
+
+    fn parse_bool(&mut self) -> Result<bool> {
+        self.parse(bool())
+    }
+
+    fn parse_str(&mut self) -> Result<&'de str> {
+        Ok(from_utf8(self.parse_bytes()?)?)
     }
 }

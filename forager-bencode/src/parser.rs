@@ -3,7 +3,7 @@ use nom::branch::alt;
 use nom::bytes::{tag, take};
 use nom::character::complete::{digit0, i64, usize};
 use nom::character::one_of;
-use nom::combinator::{flat_map, map_parser, opt, recognize};
+use nom::combinator::{flat_map, map_parser, opt, recognize, value};
 use nom::sequence::{delimited, terminated};
 
 pub(crate) fn number<'de>() -> impl Parser<&'de [u8], Output = i64, Error = nom::error::Error<&'de [u8]>> {
@@ -12,6 +12,10 @@ pub(crate) fn number<'de>() -> impl Parser<&'de [u8], Output = i64, Error = nom:
 
 pub(crate) fn bytes<'de>() -> impl Parser<&'de [u8], Output = &'de [u8], Error = nom::error::Error<&'de [u8]>> {
     flat_map(terminated(length(), colon()), take)
+}
+
+pub(crate) fn bool<'de>() -> impl Parser<&'de [u8], Output = bool, Error = nom::error::Error<&'de [u8]>> {
+    number_delimited(alt((value(false, zero()), value(true, one()))))
 }
 
 fn number_prefix<'de>()
@@ -55,6 +59,10 @@ fn nonzero<'de>() -> impl Parser<&'de [u8], Output = &'de [u8], Error = nom::err
 
 fn zero<'de>() -> impl Parser<&'de [u8], Output = &'de [u8], Error = nom::error::Error<&'de [u8]>> {
     tag("0")
+}
+
+fn one<'de>() -> impl Parser<&'de [u8], Output = &'de [u8], Error = nom::error::Error<&'de [u8]>> {
+    tag("1")
 }
 
 fn minus<'de>() -> impl Parser<&'de [u8], Output = &'de [u8], Error = nom::error::Error<&'de [u8]>>

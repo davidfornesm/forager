@@ -5,7 +5,7 @@ use forager_bencode::{from_bytes, Error};
 fn deserialize_bool() {
     let source = b"i0e";
     let result = from_bytes::<bool>(source);
-    assert_matches!(result.unwrap_err(), Error::NotSupported("bool"));
+    assert_eq!(result.unwrap(), false);
 }
 
 #[test]
@@ -82,7 +82,7 @@ fn deserialize_u128() {
 fn deserialize_char() {
     let source = b"1:a";
     let result = from_bytes::<char>(source);
-    assert_matches!(result.unwrap_err(), Error::NotSupported("char"));
+    assert_eq!(result.unwrap(), 'a');
 }
 
 #[test]

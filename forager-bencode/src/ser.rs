@@ -66,7 +66,7 @@ impl<'s, W: Write> ser::Serializer for &'s mut Serializer<W> {
     type SerializeStructVariant = VariantSerializer<MapSerializer<'s, W>>;
 
     fn serialize_bool(self, v: bool) -> Result<Self::Ok> {
-        Err(Error::NotSupported("bool"))
+        self.serialize_i64(v.into())
     }
 
     fn serialize_i8(self, v: i8) -> Result<Self::Ok> {
@@ -118,7 +118,8 @@ impl<'s, W: Write> ser::Serializer for &'s mut Serializer<W> {
     }
 
     fn serialize_char(self, v: char) -> Result<Self::Ok> {
-        Err(Error::NotSupported("char"))
+        let mut buffer = [0u8; 4];
+        self.serialize_str(v.encode_utf8(&mut buffer))
     }
 
     fn serialize_str(self, v: &str) -> Result<Self::Ok> {
