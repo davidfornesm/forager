@@ -9,5 +9,4 @@ description.workspace = true
 publish.workspace = true
 
 [dependencies]
-nom = "8.0.0"
 serde = { version = "1.0.228", features = ["derive"] }
