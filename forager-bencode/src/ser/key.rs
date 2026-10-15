@@ -1,11 +1,11 @@
 use crate::ser::error::Error;
-use crate::ser::map::MapSerializer;
+use crate::ser::dictionary::DictionarySerializer;
 use serde::ser::Impossible;
 use serde::{Serialize, ser};
 use std::io::Write;
 
 pub(crate) struct KeySerializer<'k, 'm, W> {
-    map_serializer: &'k mut MapSerializer<'m, W>,
+    map_serializer: &'k mut DictionarySerializer<'m, W>,
 }
 
 impl<W: Write> ser::Serializer for KeySerializer<'_, '_, W> {
@@ -190,7 +190,7 @@ impl<W: Write> ser::Serializer for KeySerializer<'_, '_, W> {
 }
 
 impl<'k, 'm, W> KeySerializer<'k, 'm, W> {
-    pub(crate) fn new(map_serializer: &'k mut MapSerializer<'m, W>) -> Self {
+    pub(crate) fn new(map_serializer: &'k mut DictionarySerializer<'m, W>) -> Self {
         Self { map_serializer }
     }
 }

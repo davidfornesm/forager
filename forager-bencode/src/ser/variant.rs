@@ -1,6 +1,6 @@
 use crate::ser::error::{Error, Result};
 use crate::ser::list::ListSerializer;
-use crate::ser::map::MapSerializer;
+use crate::ser::dictionary::DictionarySerializer;
 use serde::Serialize;
 use serde::ser::{SerializeMap, SerializeSeq, SerializeStructVariant, SerializeTupleVariant};
 use std::io::Write;
@@ -9,7 +9,7 @@ pub(crate) struct VariantSerializer<I> {
     inner_serializer: I,
 }
 
-impl<W: Write> SerializeStructVariant for VariantSerializer<MapSerializer<'_, W>> {
+impl<W: Write> SerializeStructVariant for VariantSerializer<DictionarySerializer<'_, W>> {
     type Ok = ();
     type Error = Error;
 

@@ -1,7 +1,7 @@
 use crate::ser::error::Error;
 use crate::ser::error::Result;
 use crate::ser::list::ListSerializer;
-use crate::ser::map::MapSerializer;
+use crate::ser::dictionary::DictionarySerializer;
 use crate::ser::variant::VariantSerializer;
 use serde::{Serialize, ser};
 use std::io::Write;
@@ -35,9 +35,9 @@ impl<'s, W: Write> ser::Serializer for &'s mut Serializer<W> {
     type SerializeTuple = ListSerializer<'s, W>;
     type SerializeTupleStruct = ListSerializer<'s, W>;
     type SerializeTupleVariant = VariantSerializer<ListSerializer<'s, W>>;
-    type SerializeMap = MapSerializer<'s, W>;
-    type SerializeStruct = MapSerializer<'s, W>;
-    type SerializeStructVariant = VariantSerializer<MapSerializer<'s, W>>;
+    type SerializeMap = DictionarySerializer<'s, W>;
+    type SerializeStruct = DictionarySerializer<'s, W>;
+    type SerializeStructVariant = VariantSerializer<DictionarySerializer<'s, W>>;
 
     fn serialize_bool(self, v: bool) -> Result<Self::Ok> {
         self.serialize_i64(v.into())
@@ -187,7 +187,7 @@ impl<'s, W: Write> ser::Serializer for &'s mut Serializer<W> {
 
     fn serialize_map(self, _len: Option<usize>) -> Result<Self::SerializeMap> {
         self.write_dictionary_prefix()?;
-        Ok(MapSerializer::new(self))
+        Ok(DictionarySerializer::new(self))
     }
 
     fn serialize_struct(self, _name: &'static str, len: usize) -> Result<Self::SerializeStruct> {

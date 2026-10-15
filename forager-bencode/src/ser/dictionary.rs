@@ -6,19 +6,19 @@ use serde::ser::{SerializeMap, SerializeStruct};
 use std::cmp::Ordering;
 use std::io::Write;
 
-pub(crate) struct MapSerializer<'s, W> {
+pub(crate) struct DictionarySerializer<'s, W> {
     serializer: &'s mut Serializer<W>,
     last_key: Vec<u8>,
-    map_state: MapState,
+    dictionary_state: DictionaryState,
 }
 
-enum MapState {
+enum DictionaryState {
     New,
     AwaitingKey,
     AwaitingValue,
 }
 
-impl<W: Write> SerializeMap for MapSerializer<'_, W> {
+impl<W: Write> SerializeMap for DictionarySerializer<'_, W> {
     type Ok = ();
     type Error = Error;
 
@@ -33,11 +33,11 @@ impl<W: Write> SerializeMap for MapSerializer<'_, W> {
     where
         T: ?Sized + Serialize,
     {
-        match self.map_state {
-            MapState::New | MapState::AwaitingKey => Err(Error::value_without_key()),
-            MapState::AwaitingValue => {
+        match self.dictionary_state {
+            DictionaryState::New | DictionaryState::AwaitingKey => Err(Error::value_without_key()),
+            DictionaryState::AwaitingValue => {
                 value.serialize(&mut *self.serializer)?;
-                self.map_state = MapState::AwaitingKey;
+                self.dictionary_state = DictionaryState::AwaitingKey;
                 Ok(())
             }
         }
@@ -49,7 +49,7 @@ impl<W: Write> SerializeMap for MapSerializer<'_, W> {
     }
 }
 
-impl<W: Write> SerializeStruct for MapSerializer<'_, W> {
+impl<W: Write> SerializeStruct for DictionarySerializer<'_, W> {
     type Ok = ();
     type Error = Error;
 
@@ -65,34 +65,34 @@ impl<W: Write> SerializeStruct for MapSerializer<'_, W> {
     }
 }
 
-impl<'s, W: Write> MapSerializer<'s, W> {
+impl<'s, W: Write> DictionarySerializer<'s, W> {
     pub(crate) fn new(serializer: &'s mut Serializer<W>) -> Self {
         Self {
             serializer,
             last_key: Vec::new(),
-            map_state: MapState::New,
+            dictionary_state: DictionaryState::New,
         }
     }
 
     pub(crate) fn write_key(&mut self, key: &[u8]) -> Result<()> {
-        match (&self.map_state, key.cmp(&self.last_key)) {
-            (MapState::AwaitingKey, Ordering::Less) => Err(Error::unsorted_key()),
-            (MapState::AwaitingKey, Ordering::Equal) => Err(Error::duplicate_key()),
-            (MapState::AwaitingValue, _) => Err(Error::key_without_value()),
-            (MapState::New, _) | (MapState::AwaitingKey, Ordering::Greater) => {
+        match (&self.dictionary_state, key.cmp(&self.last_key)) {
+            (DictionaryState::AwaitingKey, Ordering::Less) => Err(Error::unsorted_key()),
+            (DictionaryState::AwaitingKey, Ordering::Equal) => Err(Error::duplicate_key()),
+            (DictionaryState::AwaitingValue, _) => Err(Error::key_without_value()),
+            (DictionaryState::New, _) | (DictionaryState::AwaitingKey, Ordering::Greater) => {
                 self.serializer.write_bytes(key)?;
                 self.last_key.clear();
                 self.last_key.extend_from_slice(key);
-                self.map_state = MapState::AwaitingValue;
+                self.dictionary_state = DictionaryState::AwaitingValue;
                 Ok(())
             }
         }
     }
 
     pub(crate) fn finish(self) -> Result<&'s mut Serializer<W>> {
-        match self.map_state {
-            MapState::AwaitingValue => Err(Error::key_without_value()),
-            MapState::New | MapState::AwaitingKey => {
+        match self.dictionary_state {
+            DictionaryState::AwaitingValue => Err(Error::key_without_value()),
+            DictionaryState::New | DictionaryState::AwaitingKey => {
                 self.serializer.write_end_suffix()?;
                 Ok(self.serializer)
             }
