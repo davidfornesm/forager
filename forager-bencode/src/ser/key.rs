@@ -5,7 +5,7 @@ use serde::{Serialize, ser};
 use std::io::Write;
 
 pub(crate) struct KeySerializer<'k, 'm, W> {
-    map_serializer: &'k mut DictionarySerializer<'m, W>,
+    dictionary_serializer: &'k mut DictionarySerializer<'m, W>,
 }
 
 impl<W: Write> ser::Serializer for KeySerializer<'_, '_, W> {
@@ -81,7 +81,7 @@ impl<W: Write> ser::Serializer for KeySerializer<'_, '_, W> {
     }
 
     fn serialize_bytes(self, v: &[u8]) -> crate::ser::error::Result<Self::Ok> {
-        self.map_serializer.write_key(v)
+        self.dictionary_serializer.write_key(v)
     }
 
     fn serialize_none(self) -> crate::ser::error::Result<Self::Ok> {
@@ -190,7 +190,7 @@ impl<W: Write> ser::Serializer for KeySerializer<'_, '_, W> {
 }
 
 impl<'k, 'm, W> KeySerializer<'k, 'm, W> {
-    pub(crate) fn new(map_serializer: &'k mut DictionarySerializer<'m, W>) -> Self {
-        Self { map_serializer }
+    pub(crate) fn new(dictionary_serializer: &'k mut DictionarySerializer<'m, W>) -> Self {
+        Self { dictionary_serializer }
     }
 }
