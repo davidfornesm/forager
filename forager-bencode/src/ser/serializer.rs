@@ -200,14 +200,14 @@ impl<'s, W: Write> ser::Serializer for &'s mut Serializer<W> {
 
     fn serialize_struct_variant(
         self,
-        name: &'static str,
+        _name: &'static str,
         _variant_index: u32,
         variant: &'static str,
         len: usize,
     ) -> Result<Self::SerializeStructVariant> {
         self.write_token(Token::Dictionary)?;
         self.serialize_str(variant)?;
-        let serializer = self.serialize_struct(name, len)?;
+        let serializer = self.serialize_struct(variant, len)?;
         Ok(VariantSerializer::new(serializer))
     }
 
