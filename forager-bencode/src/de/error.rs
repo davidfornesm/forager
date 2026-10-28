@@ -34,6 +34,7 @@ impl Error {
         }
     }
 
+    #[must_use]
     pub fn kind(&self) -> Kind {
         match &self.representation.reason {
             Reason::Io(_) => Kind::Io,

@@ -1,16 +1,18 @@
+use crate::ser::dictionary::DictionarySerializer;
 use crate::ser::error::Error;
 use crate::ser::error::Result;
 use crate::ser::list::ListSerializer;
-use crate::ser::dictionary::DictionarySerializer;
 use crate::ser::variant::VariantSerializer;
+use crate::token::Token;
 use serde::{Serialize, ser};
+use std::fmt::NumBuffer;
 use std::io::Write;
 
 pub fn to_bytes<T>(value: &T) -> Result<Vec<u8>>
 where
     T: ?Sized + Serialize,
 {
-    let mut writer = Vec::new();
+    let mut writer = Vec::with_capacity(128);
     to_writer(&mut writer, value)?;
     Ok(writer)
 }
@@ -35,9 +37,9 @@ impl<'s, W: Write> ser::Serializer for &'s mut Serializer<W> {
     type SerializeTuple = ListSerializer<'s, W>;
     type SerializeTupleStruct = ListSerializer<'s, W>;
     type SerializeTupleVariant = VariantSerializer<ListSerializer<'s, W>>;
-    type SerializeMap = DictionarySerializer<'s, W>;
-    type SerializeStruct = DictionarySerializer<'s, W>;
-    type SerializeStructVariant = VariantSerializer<DictionarySerializer<'s, W>>;
+    type SerializeMap = DictionarySerializer<'s, W, Vec<u8>>;
+    type SerializeStruct = DictionarySerializer<'s, W, &'static [u8]>;
+    type SerializeStructVariant = VariantSerializer<DictionarySerializer<'s, W, &'static [u8]>>;
 
     fn serialize_bool(self, v: bool) -> Result<Self::Ok> {
         self.serialize_i64(v.into())
@@ -56,7 +58,7 @@ impl<'s, W: Write> ser::Serializer for &'s mut Serializer<W> {
     }
 
     fn serialize_i64(self, v: i64) -> Result<Self::Ok> {
-        self.write_number(v)
+        self.write_token(Token::Number(v))
     }
 
     fn serialize_i128(self, v: i128) -> Result<Self::Ok> {
@@ -101,7 +103,7 @@ impl<'s, W: Write> ser::Serializer for &'s mut Serializer<W> {
     }
 
     fn serialize_bytes(self, v: &[u8]) -> Result<Self::Ok> {
-        self.write_bytes(v)
+        self.write_token(Token::Bytes(v))
     }
 
     fn serialize_none(self) -> Result<Self::Ok> {
@@ -149,14 +151,15 @@ impl<'s, W: Write> ser::Serializer for &'s mut Serializer<W> {
     where
         T: ?Sized + Serialize,
     {
-        self.write_dictionary_prefix()?;
+        self.write_token(Token::Dictionary)?;
         self.serialize_str(variant)?;
         value.serialize(&mut *self)?;
-        self.write_end_suffix()
+        self.write_token(Token::End)?;
+        Ok(())
     }
 
     fn serialize_seq(self, _len: Option<usize>) -> Result<Self::SerializeSeq> {
-        self.write_list_prefix()?;
+        self.write_token(Token::List)?;
         Ok(ListSerializer::new(self))
     }
 
@@ -179,31 +182,32 @@ impl<'s, W: Write> ser::Serializer for &'s mut Serializer<W> {
         variant: &'static str,
         len: usize,
     ) -> Result<Self::SerializeTupleVariant> {
-        self.write_dictionary_prefix()?;
+        self.write_token(Token::Dictionary)?;
         self.serialize_str(variant)?;
         let serializer = self.serialize_seq(Some(len))?;
         Ok(VariantSerializer::new(serializer))
     }
 
     fn serialize_map(self, _len: Option<usize>) -> Result<Self::SerializeMap> {
-        self.write_dictionary_prefix()?;
+        self.write_token(Token::Dictionary)?;
         Ok(DictionarySerializer::new(self))
     }
 
-    fn serialize_struct(self, _name: &'static str, len: usize) -> Result<Self::SerializeStruct> {
-        self.serialize_map(Some(len))
+    fn serialize_struct(self, _name: &'static str, _len: usize) -> Result<Self::SerializeStruct> {
+        self.write_token(Token::Dictionary)?;
+        Ok(DictionarySerializer::new(self))
     }
 
     fn serialize_struct_variant(
         self,
-        _name: &'static str,
+        name: &'static str,
         _variant_index: u32,
         variant: &'static str,
         len: usize,
     ) -> Result<Self::SerializeStructVariant> {
-        self.write_dictionary_prefix()?;
+        self.write_token(Token::Dictionary)?;
         self.serialize_str(variant)?;
-        let serializer = self.serialize_map(Some(len))?;
+        let serializer = self.serialize_struct(name, len)?;
         Ok(VariantSerializer::new(serializer))
     }
 
@@ -217,36 +221,36 @@ impl<W: Write> Serializer<W> {
         Self { writer }
     }
 
-    fn write_number(&mut self, number: i64) -> Result<()> {
-        self.write_number_prefix()?;
-        write!(self.writer, "{}", number)?;
-        self.write_end_suffix()
-    }
-
-    pub(crate) fn write_bytes(&mut self, bytes: &[u8]) -> Result<()> {
-        write!(self.writer, "{}", bytes.len())?;
-        self.writer.write_all(b":")?;
-        self.writer.write_all(bytes)?;
-        Ok(())
-    }
-
-    fn write_number_prefix(&mut self) -> Result<()> {
-        self.writer.write_all(b"i")?;
-        Ok(())
-    }
-
-    fn write_list_prefix(&mut self) -> Result<()> {
-        self.writer.write_all(b"l")?;
-        Ok(())
-    }
-
-    fn write_dictionary_prefix(&mut self) -> Result<()> {
-        self.writer.write_all(b"d")?;
-        Ok(())
-    }
-
-    pub(crate) fn write_end_suffix(&mut self) -> Result<()> {
-        self.writer.write_all(b"e")?;
-        Ok(())
+    pub(crate) fn write_token(&mut self, token: Token) -> Result<()> {
+        match token {
+            Token::Number(number) => {
+                let mut buffer = NumBuffer::new();
+                self.writer.write_all(b"i")?;
+                self.writer
+                    .write_all(number.format_into(&mut buffer).as_bytes())?;
+                self.writer.write_all(b"e")?;
+                Ok(())
+            }
+            Token::Bytes(bytes) => {
+                let mut buffer = NumBuffer::new();
+                self.writer
+                    .write_all(bytes.len().format_into(&mut buffer).as_bytes())?;
+                self.writer.write_all(b":")?;
+                self.writer.write_all(bytes)?;
+                Ok(())
+            }
+            Token::List => {
+                self.writer.write_all(b"l")?;
+                Ok(())
+            }
+            Token::Dictionary => {
+                self.writer.write_all(b"d")?;
+                Ok(())
+            }
+            Token::End => {
+                self.writer.write_all(b"e")?;
+                Ok(())
+            }
+        }
     }
 }

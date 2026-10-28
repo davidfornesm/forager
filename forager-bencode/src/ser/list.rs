@@ -1,5 +1,6 @@
 use crate::ser::error::{Error, Result};
 use crate::ser::serializer::Serializer;
+use crate::token::Token;
 use serde::Serialize;
 use serde::ser::{SerializeSeq, SerializeTuple, SerializeTupleStruct};
 use std::io::Write;
@@ -63,7 +64,7 @@ impl<'s, W: Write> ListSerializer<'s, W> {
     }
 
     pub(crate) fn finish(self) -> Result<&'s mut Serializer<W>> {
-        self.serializer.write_end_suffix()?;
+        self.serializer.write_token(Token::End)?;
         Ok(self.serializer)
     }
 }

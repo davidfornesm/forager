@@ -1,15 +1,18 @@
+use crate::ser::dictionary::DictionarySerializer;
 use crate::ser::error::{Error, Result};
 use crate::ser::list::ListSerializer;
-use crate::ser::dictionary::DictionarySerializer;
+use crate::token::Token;
 use serde::Serialize;
-use serde::ser::{SerializeMap, SerializeSeq, SerializeStructVariant, SerializeTupleVariant};
+use serde::ser::{SerializeSeq, SerializeStruct, SerializeStructVariant, SerializeTupleVariant};
 use std::io::Write;
 
 pub(crate) struct VariantSerializer<I> {
     inner_serializer: I,
 }
 
-impl<W: Write> SerializeStructVariant for VariantSerializer<DictionarySerializer<'_, W>> {
+impl<W: Write> SerializeStructVariant
+    for VariantSerializer<DictionarySerializer<'_, W, &'static [u8]>>
+{
     type Ok = ();
     type Error = Error;
 
@@ -17,11 +20,12 @@ impl<W: Write> SerializeStructVariant for VariantSerializer<DictionarySerializer
     where
         T: ?Sized + Serialize,
     {
-        SerializeMap::serialize_entry(&mut self.inner_serializer, key, value)
+        SerializeStruct::serialize_field(&mut self.inner_serializer, key, value)
     }
 
     fn end(self) -> Result<Self::Ok> {
-        self.inner_serializer.finish()?.write_end_suffix()
+        self.inner_serializer.finish()?.write_token(Token::End)?;
+        Ok(())
     }
 }
 
@@ -37,7 +41,8 @@ impl<W: Write> SerializeTupleVariant for VariantSerializer<ListSerializer<'_, W>
     }
 
     fn end(self) -> Result<Self::Ok> {
-        self.inner_serializer.finish()?.write_end_suffix()
+        self.inner_serializer.finish()?.write_token(Token::End)?;
+        Ok(())
     }
 }
 

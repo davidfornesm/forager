@@ -1,7 +1,7 @@
+mod dictionary;
 mod error;
 mod key;
 mod list;
-mod dictionary;
 mod serializer;
 mod variant;
 

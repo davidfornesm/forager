@@ -34,6 +34,10 @@ impl Error {
         Self::new(Reason::Unsupported(message))
     }
 
+    pub(crate) fn unsupported_key(message: &'static str) -> Self {
+        Self::new(Reason::UnsupportedKey(message))
+    }
+
     pub(crate) fn integer_out_of_range() -> Self {
         Self::new(Reason::IntegerOutOfRange)
     }
@@ -54,16 +58,18 @@ impl Error {
         Self::new(Reason::DuplicateKey)
     }
 
+    #[must_use]
     pub fn kind(&self) -> Kind {
         match self.representation.reason {
             Reason::Io(_) => Kind::Io,
-            Reason::Unsupported(_) => Kind::Model,
-            Reason::Custom(_) => Kind::Model,
             Reason::IntegerOutOfRange => Kind::Limit,
-            Reason::KeyWithoutValue => Kind::Model,
-            Reason::ValueWithoutKey => Kind::Model,
-            Reason::UnsortedKey => Kind::Model,
-            Reason::DuplicateKey => Kind::Model,
+            Reason::Unsupported(_)
+            | Reason::Custom(_)
+            | Reason::KeyWithoutValue
+            | Reason::ValueWithoutKey
+            | Reason::UnsortedKey
+            | Reason::DuplicateKey
+            | Reason::UnsupportedKey(_) => Kind::Model,
         }
     }
 }
@@ -73,6 +79,7 @@ impl Display for Error {
         match &self.representation.reason {
             Reason::Io(_) => f.write_str("io"),
             Reason::Unsupported(unsupported) => write!(f, "unsupported: {unsupported}"),
+            Reason::UnsupportedKey(unsupported) => write!(f, "unsupported key: {unsupported}"),
             Reason::Custom(message) => f.write_str(message),
             Reason::IntegerOutOfRange => f.write_str("integer out of range"),
             Reason::KeyWithoutValue => f.write_str("key without value"),
@@ -116,6 +123,7 @@ struct Representation {
 enum Reason {
     Io(std::io::Error),
     Unsupported(&'static str),
+    UnsupportedKey(&'static str),
     Custom(Box<str>),
     IntegerOutOfRange,
     KeyWithoutValue,

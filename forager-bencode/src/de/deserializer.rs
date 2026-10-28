@@ -74,7 +74,7 @@ impl<'de> de::Deserializer<'de> for &mut Deserializer<'de> {
 
     fn deserialize_i128<V>(self, _visitor: V) -> Result<V::Value>
     where
-        V: Visitor<'de>
+        V: Visitor<'de>,
     {
         todo!()
     }
@@ -109,7 +109,7 @@ impl<'de> de::Deserializer<'de> for &mut Deserializer<'de> {
 
     fn deserialize_u128<V>(self, _visitor: V) -> Result<V::Value>
     where
-        V: Visitor<'de>
+        V: Visitor<'de>,
     {
         todo!()
     }
