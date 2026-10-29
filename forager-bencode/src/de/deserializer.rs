@@ -28,7 +28,7 @@ struct Deserializer<'de> {
 }
 
 impl<'de> Deserializer<'de> {
-    fn new(source: &'de [u8]) -> Self {
+    const fn new(source: &'de [u8]) -> Self {
         Self { source }
     }
 

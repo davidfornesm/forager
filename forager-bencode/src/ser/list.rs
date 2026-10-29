@@ -10,7 +10,7 @@ pub(crate) struct ListSerializer<'s, W> {
 }
 
 impl<'s, W: Write> ListSerializer<'s, W> {
-    pub(crate) fn new(serializer: &'s mut Serializer<W>) -> Self {
+    pub(crate) const fn new(serializer: &'s mut Serializer<W>) -> Self {
         Self { serializer }
     }
 

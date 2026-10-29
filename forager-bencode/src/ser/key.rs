@@ -9,7 +9,7 @@ pub(crate) struct KeySerializer<'d, 's, W> {
 }
 
 impl<'d, 's, W> KeySerializer<'d, 's, W> {
-    pub(crate) fn new(dictionary_serializer: &'d mut DictionarySerializer<'s, W, Vec<u8>>) -> Self {
+    pub(crate) const fn new(dictionary_serializer: &'d mut DictionarySerializer<'s, W, Vec<u8>>) -> Self {
         Self {
             dictionary_serializer,
         }

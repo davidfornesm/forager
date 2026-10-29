@@ -42,23 +42,23 @@ impl<'s, W: Write, K: AsRef<[u8]> + Default> DictionarySerializer<'s, W, K> {
         T: ?Sized + Serialize,
     {
         match self.dictionary_state {
-            DictionaryState::New | DictionaryState::AwaitingKey => Err(Error::value_without_key()),
-            DictionaryState::AwaitingValue => {
-                value.serialize(&mut *self.serializer)?;
-                self.dictionary_state = DictionaryState::AwaitingKey;
-                Ok(())
+            DictionaryState::New | DictionaryState::AwaitingKey => {
+                return Err(Error::value_without_key());
             }
+            DictionaryState::AwaitingValue => {}
         }
+        value.serialize(&mut *self.serializer)?;
+        self.dictionary_state = DictionaryState::AwaitingKey;
+        Ok(())
     }
 
     pub(crate) fn finish(self) -> Result<&'s mut Serializer<W>> {
         match self.dictionary_state {
-            DictionaryState::AwaitingValue => Err(Error::key_without_value()),
-            DictionaryState::New | DictionaryState::AwaitingKey => {
-                self.serializer.write_token(Token::End)?;
-                Ok(self.serializer)
-            }
+            DictionaryState::AwaitingValue => return Err(Error::key_without_value()),
+            DictionaryState::New | DictionaryState::AwaitingKey => {}
         }
+        self.serializer.write_token(Token::End)?;
+        Ok(self.serializer)
     }
 }
 

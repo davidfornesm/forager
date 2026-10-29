@@ -11,7 +11,7 @@ pub(crate) struct VariantSerializer<I> {
 }
 
 impl<I> VariantSerializer<I> {
-    pub(crate) fn new(inner_serializer: I) -> Self {
+    pub(crate) const fn new(inner_serializer: I) -> Self {
         Self { inner_serializer }
     }
 }

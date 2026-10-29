@@ -30,7 +30,7 @@ pub(crate) struct Serializer<W> {
 }
 
 impl<W: Write> Serializer<W> {
-    fn new(writer: W) -> Self {
+    const fn new(writer: W) -> Self {
         Self { writer }
     }
 
@@ -42,7 +42,6 @@ impl<W: Write> Serializer<W> {
                 self.writer
                     .write_all(number.format_into(&mut buffer).as_bytes())?;
                 self.writer.write_all(b"e")?;
-                Ok(())
             }
             Token::Bytes(bytes) => {
                 let mut buffer = NumBuffer::new();
@@ -50,21 +49,18 @@ impl<W: Write> Serializer<W> {
                     .write_all(bytes.len().format_into(&mut buffer).as_bytes())?;
                 self.writer.write_all(b":")?;
                 self.writer.write_all(bytes)?;
-                Ok(())
             }
             Token::List => {
                 self.writer.write_all(b"l")?;
-                Ok(())
             }
             Token::Dictionary => {
                 self.writer.write_all(b"d")?;
-                Ok(())
             }
             Token::End => {
                 self.writer.write_all(b"e")?;
-                Ok(())
             }
         }
+        Ok(())
     }
 }
 

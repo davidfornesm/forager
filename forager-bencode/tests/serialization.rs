@@ -1,6 +1,5 @@
 use forager_bencode::ser::{Kind, to_bytes};
 use serde::{Serialize, Serializer};
-use std::assert_matches;
 use std::collections::BTreeMap;
 
 #[test]
@@ -84,14 +83,14 @@ fn serialize_u128() {
 fn serialize_f32() {
     let value: f32 = 0.0;
     let result = to_bytes(&value);
-    assert_matches!(result.unwrap_err().kind(), Kind::Model);
+    assert_eq!(result.unwrap_err().kind(), Kind::Model);
 }
 
 #[test]
 fn serialize_f64() {
     let value: f64 = 0.0;
     let result = to_bytes(&value);
-    assert_matches!(result.unwrap_err().kind(), Kind::Model);
+    assert_eq!(result.unwrap_err().kind(), Kind::Model);
 }
 
 #[test]
@@ -130,7 +129,7 @@ fn serialize_bytes() {
 fn serialize_none() {
     let value: Option<u8> = None;
     let result = to_bytes(&value);
-    assert_matches!(result.unwrap_err().kind(), Kind::Model);
+    assert_eq!(result.unwrap_err().kind(), Kind::Model);
 }
 
 #[test]
@@ -144,7 +143,7 @@ fn serialize_some() {
 fn serialize_unit() {
     let value: () = ();
     let result = to_bytes(&value);
-    assert_matches!(result.unwrap_err().kind(), Kind::Model);
+    assert_eq!(result.unwrap_err().kind(), Kind::Model);
 }
 
 #[test]
@@ -154,7 +153,7 @@ fn serialize_unit_struct() {
 
     let value: UnitStruct = UnitStruct;
     let result = to_bytes(&value);
-    assert_matches!(result.unwrap_err().kind(), Kind::Model);
+    assert_eq!(result.unwrap_err().kind(), Kind::Model);
 }
 
 #[test]
