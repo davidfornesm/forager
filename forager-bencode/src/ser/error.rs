@@ -26,7 +26,6 @@ impl Error {
     pub fn kind(&self) -> Kind {
         match self.representation.reason {
             Reason::Io(_) => Kind::Io,
-            Reason::NumberOutOfRange => Kind::Limit,
             Reason::Custom(_)
             | Reason::Unsupported(_)
             | Reason::UnsupportedKey(_)
@@ -34,6 +33,7 @@ impl Error {
             | Reason::ValueWithoutKey
             | Reason::UnsortedKey
             | Reason::DuplicateKey => Kind::Model,
+            Reason::NumberOutOfRange => Kind::Limit,
         }
     }
 
@@ -53,10 +53,6 @@ impl Error {
         Self::new(Reason::UnsupportedKey(message))
     }
 
-    pub(crate) fn number_out_of_range() -> Self {
-        Self::new(Reason::NumberOutOfRange)
-    }
-
     pub(crate) fn key_without_value() -> Self {
         Self::new(Reason::KeyWithoutValue)
     }
@@ -72,20 +68,24 @@ impl Error {
     pub(crate) fn duplicate_key() -> Self {
         Self::new(Reason::DuplicateKey)
     }
+
+    pub(crate) fn number_out_of_range() -> Self {
+        Self::new(Reason::NumberOutOfRange)
+    }
 }
 
 impl Display for Error {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         match &self.representation.reason {
             Reason::Io(_) => f.write_str("io"),
+            Reason::Custom(message) => f.write_str(message),
             Reason::Unsupported(unsupported) => write!(f, "unsupported: {unsupported}"),
             Reason::UnsupportedKey(unsupported) => write!(f, "unsupported key: {unsupported}"),
-            Reason::Custom(message) => f.write_str(message),
-            Reason::NumberOutOfRange => f.write_str("number out of range"),
             Reason::KeyWithoutValue => f.write_str("key without value"),
             Reason::ValueWithoutKey => f.write_str("value without key"),
             Reason::UnsortedKey => f.write_str("unsorted key"),
             Reason::DuplicateKey => f.write_str("duplicate key"),
+            Reason::NumberOutOfRange => f.write_str("number out of range"),
         }
     }
 }
@@ -122,12 +122,12 @@ struct Representation {
 #[derive(Debug)]
 enum Reason {
     Io(std::io::Error),
+    Custom(Box<str>),
     Unsupported(&'static str),
     UnsupportedKey(&'static str),
-    Custom(Box<str>),
-    NumberOutOfRange,
     KeyWithoutValue,
     ValueWithoutKey,
     UnsortedKey,
     DuplicateKey,
+    NumberOutOfRange,
 }
