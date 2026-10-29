@@ -6,26 +6,14 @@ pub struct Error {
     representation: Box<Representation>,
 }
 
+pub type Result<T> = std::result::Result<T, Error>;
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum Kind {
     Io,
     Model,
     Format,
 }
-
-#[derive(Debug)]
-struct Representation {
-    reason: Reason,
-}
-
-#[derive(Debug)]
-enum Reason {
-    Io(std::io::Error),
-    Custom(Box<str>),
-    Trailing,
-}
-
-pub type Result<T> = std::result::Result<T, Error>;
 
 impl Error {
     fn new(reason: Reason) -> Self {
@@ -36,7 +24,7 @@ impl Error {
 
     #[must_use]
     pub fn kind(&self) -> Kind {
-        match &self.representation.reason {
+        match self.representation.reason {
             Reason::Io(_) => Kind::Io,
             Reason::Custom(_) => Kind::Model,
             Reason::Trailing => Kind::Format,
@@ -47,8 +35,8 @@ impl Error {
         Self::new(Reason::Io(error))
     }
 
-    fn custom(error: Box<str>) -> Self {
-        Self::new(Reason::Custom(error))
+    fn custom(message: Box<str>) -> Self {
+        Self::new(Reason::Custom(message))
     }
 
     pub(crate) fn trailing() -> Self {
@@ -75,12 +63,6 @@ impl std::error::Error for Error {
     }
 }
 
-impl From<std::io::Error> for Error {
-    fn from(value: std::io::Error) -> Self {
-        Self::io(value)
-    }
-}
-
 impl de::Error for Error {
     fn custom<T>(msg: T) -> Self
     where
@@ -88,4 +70,22 @@ impl de::Error for Error {
     {
         Self::custom(msg.to_string().into_boxed_str())
     }
+}
+
+impl From<std::io::Error> for Error {
+    fn from(value: std::io::Error) -> Self {
+        Self::io(value)
+    }
+}
+
+#[derive(Debug)]
+struct Representation {
+    reason: Reason,
+}
+
+#[derive(Debug)]
+enum Reason {
+    Io(std::io::Error),
+    Custom(Box<str>),
+    Trailing,
 }

@@ -9,6 +9,17 @@ pub(crate) struct ListSerializer<'s, W> {
     serializer: &'s mut Serializer<W>,
 }
 
+impl<'s, W: Write> ListSerializer<'s, W> {
+    pub(crate) fn new(serializer: &'s mut Serializer<W>) -> Self {
+        Self { serializer }
+    }
+
+    pub(crate) fn finish(self) -> Result<&'s mut Serializer<W>> {
+        self.serializer.write_token(Token::End)?;
+        Ok(self.serializer)
+    }
+}
+
 impl<W: Write> SerializeSeq for ListSerializer<'_, W> {
     type Ok = ();
     type Error = Error;
@@ -55,16 +66,5 @@ impl<W: Write> SerializeTupleStruct for ListSerializer<'_, W> {
 
     fn end(self) -> Result<Self::Ok> {
         SerializeSeq::end(self)
-    }
-}
-
-impl<'s, W: Write> ListSerializer<'s, W> {
-    pub(crate) fn new(serializer: &'s mut Serializer<W>) -> Self {
-        Self { serializer }
-    }
-
-    pub(crate) fn finish(self) -> Result<&'s mut Serializer<W>> {
-        self.serializer.write_token(Token::End)?;
-        Ok(self.serializer)
     }
 }

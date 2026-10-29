@@ -1,6 +1,5 @@
 use crate::ser::dictionary::DictionarySerializer;
-use crate::ser::error::Error;
-use crate::ser::error::Result;
+use crate::ser::error::{Error, Result};
 use crate::ser::list::ListSerializer;
 use crate::ser::variant::VariantSerializer;
 use crate::token::Token;
@@ -28,6 +27,45 @@ where
 
 pub(crate) struct Serializer<W> {
     writer: W,
+}
+
+impl<W: Write> Serializer<W> {
+    fn new(writer: W) -> Self {
+        Self { writer }
+    }
+
+    pub(crate) fn write_token(&mut self, token: Token<'_>) -> Result<()> {
+        match token {
+            Token::Number(number) => {
+                let mut buffer = NumBuffer::new();
+                self.writer.write_all(b"i")?;
+                self.writer
+                    .write_all(number.format_into(&mut buffer).as_bytes())?;
+                self.writer.write_all(b"e")?;
+                Ok(())
+            }
+            Token::Bytes(bytes) => {
+                let mut buffer = NumBuffer::new();
+                self.writer
+                    .write_all(bytes.len().format_into(&mut buffer).as_bytes())?;
+                self.writer.write_all(b":")?;
+                self.writer.write_all(bytes)?;
+                Ok(())
+            }
+            Token::List => {
+                self.writer.write_all(b"l")?;
+                Ok(())
+            }
+            Token::Dictionary => {
+                self.writer.write_all(b"d")?;
+                Ok(())
+            }
+            Token::End => {
+                self.writer.write_all(b"e")?;
+                Ok(())
+            }
+        }
+    }
 }
 
 impl<'s, W: Write> ser::Serializer for &'s mut Serializer<W> {
@@ -62,7 +100,7 @@ impl<'s, W: Write> ser::Serializer for &'s mut Serializer<W> {
     }
 
     fn serialize_i128(self, v: i128) -> Result<Self::Ok> {
-        self.serialize_i64(v.try_into().map_err(|_| Error::integer_out_of_range())?)
+        self.serialize_i64(v.try_into().map_err(|_| Error::number_out_of_range())?)
     }
 
     fn serialize_u8(self, v: u8) -> Result<Self::Ok> {
@@ -78,11 +116,11 @@ impl<'s, W: Write> ser::Serializer for &'s mut Serializer<W> {
     }
 
     fn serialize_u64(self, v: u64) -> Result<Self::Ok> {
-        self.serialize_i64(v.try_into().map_err(|_| Error::integer_out_of_range())?)
+        self.serialize_i64(v.try_into().map_err(|_| Error::number_out_of_range())?)
     }
 
     fn serialize_u128(self, v: u128) -> Result<Self::Ok> {
-        self.serialize_i64(v.try_into().map_err(|_| Error::integer_out_of_range())?)
+        self.serialize_i64(v.try_into().map_err(|_| Error::number_out_of_range())?)
     }
 
     fn serialize_f32(self, _v: f32) -> Result<Self::Ok> {
@@ -213,44 +251,5 @@ impl<'s, W: Write> ser::Serializer for &'s mut Serializer<W> {
 
     fn is_human_readable(&self) -> bool {
         false
-    }
-}
-
-impl<W: Write> Serializer<W> {
-    fn new(writer: W) -> Self {
-        Self { writer }
-    }
-
-    pub(crate) fn write_token(&mut self, token: Token) -> Result<()> {
-        match token {
-            Token::Number(number) => {
-                let mut buffer = NumBuffer::new();
-                self.writer.write_all(b"i")?;
-                self.writer
-                    .write_all(number.format_into(&mut buffer).as_bytes())?;
-                self.writer.write_all(b"e")?;
-                Ok(())
-            }
-            Token::Bytes(bytes) => {
-                let mut buffer = NumBuffer::new();
-                self.writer
-                    .write_all(bytes.len().format_into(&mut buffer).as_bytes())?;
-                self.writer.write_all(b":")?;
-                self.writer.write_all(bytes)?;
-                Ok(())
-            }
-            Token::List => {
-                self.writer.write_all(b"l")?;
-                Ok(())
-            }
-            Token::Dictionary => {
-                self.writer.write_all(b"d")?;
-                Ok(())
-            }
-            Token::End => {
-                self.writer.write_all(b"e")?;
-                Ok(())
-            }
-        }
     }
 }

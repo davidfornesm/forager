@@ -22,6 +22,21 @@ impl Error {
         }
     }
 
+    #[must_use]
+    pub fn kind(&self) -> Kind {
+        match self.representation.reason {
+            Reason::Io(_) => Kind::Io,
+            Reason::NumberOutOfRange => Kind::Limit,
+            Reason::Custom(_)
+            | Reason::Unsupported(_)
+            | Reason::UnsupportedKey(_)
+            | Reason::KeyWithoutValue
+            | Reason::ValueWithoutKey
+            | Reason::UnsortedKey
+            | Reason::DuplicateKey => Kind::Model,
+        }
+    }
+
     fn io(error: std::io::Error) -> Self {
         Self::new(Reason::Io(error))
     }
@@ -38,16 +53,16 @@ impl Error {
         Self::new(Reason::UnsupportedKey(message))
     }
 
-    pub(crate) fn integer_out_of_range() -> Self {
-        Self::new(Reason::IntegerOutOfRange)
-    }
-
-    pub(crate) fn value_without_key() -> Self {
-        Self::new(Reason::ValueWithoutKey)
+    pub(crate) fn number_out_of_range() -> Self {
+        Self::new(Reason::NumberOutOfRange)
     }
 
     pub(crate) fn key_without_value() -> Self {
         Self::new(Reason::KeyWithoutValue)
+    }
+
+    pub(crate) fn value_without_key() -> Self {
+        Self::new(Reason::ValueWithoutKey)
     }
 
     pub(crate) fn unsorted_key() -> Self {
@@ -56,21 +71,6 @@ impl Error {
 
     pub(crate) fn duplicate_key() -> Self {
         Self::new(Reason::DuplicateKey)
-    }
-
-    #[must_use]
-    pub fn kind(&self) -> Kind {
-        match self.representation.reason {
-            Reason::Io(_) => Kind::Io,
-            Reason::IntegerOutOfRange => Kind::Limit,
-            Reason::Unsupported(_)
-            | Reason::Custom(_)
-            | Reason::KeyWithoutValue
-            | Reason::ValueWithoutKey
-            | Reason::UnsortedKey
-            | Reason::DuplicateKey
-            | Reason::UnsupportedKey(_) => Kind::Model,
-        }
     }
 }
 
@@ -81,7 +81,7 @@ impl Display for Error {
             Reason::Unsupported(unsupported) => write!(f, "unsupported: {unsupported}"),
             Reason::UnsupportedKey(unsupported) => write!(f, "unsupported key: {unsupported}"),
             Reason::Custom(message) => f.write_str(message),
-            Reason::IntegerOutOfRange => f.write_str("integer out of range"),
+            Reason::NumberOutOfRange => f.write_str("number out of range"),
             Reason::KeyWithoutValue => f.write_str("key without value"),
             Reason::ValueWithoutKey => f.write_str("value without key"),
             Reason::UnsortedKey => f.write_str("unsorted key"),
@@ -125,7 +125,7 @@ enum Reason {
     Unsupported(&'static str),
     UnsupportedKey(&'static str),
     Custom(Box<str>),
-    IntegerOutOfRange,
+    NumberOutOfRange,
     KeyWithoutValue,
     ValueWithoutKey,
     UnsortedKey,

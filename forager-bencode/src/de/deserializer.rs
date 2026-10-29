@@ -27,6 +27,20 @@ struct Deserializer<'de> {
     source: &'de [u8],
 }
 
+impl<'de> Deserializer<'de> {
+    fn new(source: &'de [u8]) -> Self {
+        Self { source }
+    }
+
+    fn finish(self) -> Result<()> {
+        if self.source.is_empty() {
+            Ok(())
+        } else {
+            Err(Error::trailing())
+        }
+    }
+}
+
 impl<'de> de::Deserializer<'de> for &mut Deserializer<'de> {
     type Error = Error;
 
@@ -264,19 +278,5 @@ impl<'de> de::Deserializer<'de> for &mut Deserializer<'de> {
 
     fn is_human_readable(&self) -> bool {
         false
-    }
-}
-
-impl<'de> Deserializer<'de> {
-    fn new(source: &'de [u8]) -> Self {
-        Self { source }
-    }
-
-    fn finish(self) -> Result<()> {
-        if self.source.is_empty() {
-            Ok(())
-        } else {
-            Err(Error::trailing())
-        }
     }
 }

@@ -150,9 +150,9 @@ fn serialize_unit() {
 #[test]
 fn serialize_unit_struct() {
     #[derive(Serialize)]
-    struct Empty;
+    struct UnitStruct;
 
-    let value: Empty = Empty;
+    let value: UnitStruct = UnitStruct;
     let result = to_bytes(&value);
     assert_matches!(result.unwrap_err().kind(), Kind::Model);
 }
@@ -164,7 +164,7 @@ fn serialize_unit_variant() {
         A,
     }
 
-    let value = UnitVariant::A;
+    let value: UnitVariant = UnitVariant::A;
     let result = to_bytes(&value);
     assert_eq!(result.unwrap(), b"1:A");
 }
@@ -172,9 +172,9 @@ fn serialize_unit_variant() {
 #[test]
 fn serialize_newtype_struct() {
     #[derive(Serialize)]
-    struct Wrapper(u8);
+    struct NewtypeStruct(u8);
 
-    let value: Wrapper = Wrapper(0);
+    let value: NewtypeStruct = NewtypeStruct(0);
     let result = to_bytes(&value);
     assert_eq!(result.unwrap(), b"i0e");
 }
@@ -186,7 +186,7 @@ fn serialize_newtype_variant() {
         A(u8),
     }
 
-    let value = NewtypeVariant::A(0);
+    let value: NewtypeVariant = NewtypeVariant::A(0);
     let result = to_bytes(&value);
     assert_eq!(result.unwrap(), b"d1:Ai0ee");
 }
@@ -208,9 +208,9 @@ fn serialize_tuple() {
 #[test]
 fn serialize_tuple_struct() {
     #[derive(Serialize)]
-    struct Pair(u8, u8);
+    struct TupleStruct(u8, u8);
 
-    let value: Pair = Pair(0, 0);
+    let value: TupleStruct = TupleStruct(0, 0);
     let result = to_bytes(&value);
     assert_eq!(result.unwrap(), b"li0ei0ee");
 }
@@ -222,15 +222,14 @@ fn serialize_tuple_variant() {
         A(u8, u8),
     }
 
-    let value = TupleVariant::A(0, 0);
+    let value: TupleVariant = TupleVariant::A(0, 0);
     let result = to_bytes(&value);
     assert_eq!(result.unwrap(), b"d1:Ali0ei0eee");
 }
 
 #[test]
 fn serialize_map() {
-    let mut value = BTreeMap::new();
-    value.insert("a", 0);
+    let value: BTreeMap<&str, u8> = BTreeMap::from([("a", 0)]);
     let result = to_bytes(&value);
     assert_eq!(result.unwrap(), b"d1:ai0ee");
 }
@@ -242,7 +241,7 @@ fn serialize_struct() {
         a: u8,
     }
 
-    let value = Struct { a: 0 };
+    let value: Struct = Struct { a: 0 };
     let result = to_bytes(&value);
     assert_eq!(result.unwrap(), b"d1:ai0ee");
 }
@@ -254,7 +253,7 @@ fn serialize_struct_variant() {
         A { a: u8 },
     }
 
-    let value = StructVariant::A { a: 0 };
+    let value: StructVariant = StructVariant::A { a: 0 };
     let result = to_bytes(&value);
     assert_eq!(result.unwrap(), b"d1:Ad1:ai0eee");
 }

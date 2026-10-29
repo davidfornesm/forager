@@ -10,22 +10,9 @@ pub(crate) struct VariantSerializer<I> {
     inner_serializer: I,
 }
 
-impl<W: Write> SerializeStructVariant
-    for VariantSerializer<DictionarySerializer<'_, W, &'static [u8]>>
-{
-    type Ok = ();
-    type Error = Error;
-
-    fn serialize_field<T>(&mut self, key: &'static str, value: &T) -> Result<Self::Ok>
-    where
-        T: ?Sized + Serialize,
-    {
-        SerializeStruct::serialize_field(&mut self.inner_serializer, key, value)
-    }
-
-    fn end(self) -> Result<Self::Ok> {
-        self.inner_serializer.finish()?.write_token(Token::End)?;
-        Ok(())
+impl<I> VariantSerializer<I> {
+    pub(crate) fn new(inner_serializer: I) -> Self {
+        Self { inner_serializer }
     }
 }
 
@@ -46,8 +33,21 @@ impl<W: Write> SerializeTupleVariant for VariantSerializer<ListSerializer<'_, W>
     }
 }
 
-impl<I> VariantSerializer<I> {
-    pub(crate) fn new(inner_serializer: I) -> Self {
-        Self { inner_serializer }
+impl<W: Write> SerializeStructVariant
+    for VariantSerializer<DictionarySerializer<'_, W, &'static [u8]>>
+{
+    type Ok = ();
+    type Error = Error;
+
+    fn serialize_field<T>(&mut self, key: &'static str, value: &T) -> Result<Self::Ok>
+    where
+        T: ?Sized + Serialize,
+    {
+        SerializeStruct::serialize_field(&mut self.inner_serializer, key, value)
+    }
+
+    fn end(self) -> Result<Self::Ok> {
+        self.inner_serializer.finish()?.write_token(Token::End)?;
+        Ok(())
     }
 }

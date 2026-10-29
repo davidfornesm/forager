@@ -13,71 +13,6 @@ pub(crate) struct DictionarySerializer<'s, W, K> {
     dictionary_state: DictionaryState,
 }
 
-enum DictionaryState {
-    New,
-    AwaitingKey,
-    AwaitingValue,
-}
-
-impl<W: Write> SerializeMap for DictionarySerializer<'_, W, Vec<u8>> {
-    type Ok = ();
-    type Error = Error;
-
-    fn serialize_key<T>(&mut self, key: &T) -> Result<Self::Ok>
-    where
-        T: ?Sized + Serialize,
-    {
-        key.serialize(KeySerializer::new(self))
-    }
-
-    fn serialize_value<T>(&mut self, value: &T) -> Result<Self::Ok>
-    where
-        T: ?Sized + Serialize,
-    {
-        self.write_value(value)
-    }
-
-    fn end(self) -> Result<Self::Ok> {
-        self.finish()?;
-        Ok(())
-    }
-}
-
-impl<W: Write> SerializeStruct for DictionarySerializer<'_, W, &'static [u8]> {
-    type Ok = ();
-    type Error = Error;
-
-    fn serialize_field<T>(&mut self, key: &'static str, value: &T) -> Result<Self::Ok>
-    where
-        T: ?Sized + Serialize,
-    {
-        self.write_static_key(key.as_bytes())?;
-        self.write_value(value)?;
-        Ok(())
-    }
-
-    fn end(self) -> Result<Self::Ok> {
-        self.finish()?;
-        Ok(())
-    }
-}
-
-impl<W: Write> DictionarySerializer<'_, W, Vec<u8>> {
-    pub(crate) fn write_transient_key(&mut self, key: &[u8]) -> Result<()> {
-        self.write_key(key)?;
-        key.clone_into(&mut self.last_key);
-        Ok(())
-    }
-}
-
-impl<W: Write> DictionarySerializer<'_, W, &'static [u8]> {
-    fn write_static_key(&mut self, key: &'static [u8]) -> Result<()> {
-        self.write_key(key)?;
-        self.last_key = key;
-        Ok(())
-    }
-}
-
 impl<'s, W: Write, K: AsRef<[u8]> + Default> DictionarySerializer<'s, W, K> {
     pub(crate) fn new(serializer: &'s mut Serializer<W>) -> Self {
         Self {
@@ -125,4 +60,69 @@ impl<'s, W: Write, K: AsRef<[u8]> + Default> DictionarySerializer<'s, W, K> {
             }
         }
     }
+}
+
+impl<W: Write> DictionarySerializer<'_, W, Vec<u8>> {
+    pub(crate) fn write_transient_key(&mut self, key: &[u8]) -> Result<()> {
+        self.write_key(key)?;
+        key.clone_into(&mut self.last_key);
+        Ok(())
+    }
+}
+
+impl<W: Write> DictionarySerializer<'_, W, &'static [u8]> {
+    fn write_static_key(&mut self, key: &'static [u8]) -> Result<()> {
+        self.write_key(key)?;
+        self.last_key = key;
+        Ok(())
+    }
+}
+
+impl<W: Write> SerializeMap for DictionarySerializer<'_, W, Vec<u8>> {
+    type Ok = ();
+    type Error = Error;
+
+    fn serialize_key<T>(&mut self, key: &T) -> Result<Self::Ok>
+    where
+        T: ?Sized + Serialize,
+    {
+        key.serialize(KeySerializer::new(self))
+    }
+
+    fn serialize_value<T>(&mut self, value: &T) -> Result<Self::Ok>
+    where
+        T: ?Sized + Serialize,
+    {
+        self.write_value(value)
+    }
+
+    fn end(self) -> Result<Self::Ok> {
+        self.finish()?;
+        Ok(())
+    }
+}
+
+impl<W: Write> SerializeStruct for DictionarySerializer<'_, W, &'static [u8]> {
+    type Ok = ();
+    type Error = Error;
+
+    fn serialize_field<T>(&mut self, key: &'static str, value: &T) -> Result<Self::Ok>
+    where
+        T: ?Sized + Serialize,
+    {
+        self.write_static_key(key.as_bytes())?;
+        self.write_value(value)?;
+        Ok(())
+    }
+
+    fn end(self) -> Result<Self::Ok> {
+        self.finish()?;
+        Ok(())
+    }
+}
+
+enum DictionaryState {
+    New,
+    AwaitingKey,
+    AwaitingValue,
 }
