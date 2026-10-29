@@ -9,31 +9,34 @@ use std::io::Write;
 
 pub(crate) struct DictionarySerializer<'s, W, K> {
     serializer: &'s mut Serializer<W>,
-    last_key: K,
-    dictionary_state: DictionaryState,
+    last_key: Option<K>,
+    state: State,
 }
 
-impl<'s, W: Write, K: AsRef<[u8]> + Default> DictionarySerializer<'s, W, K> {
-    pub(crate) fn new(serializer: &'s mut Serializer<W>) -> Self {
+impl<'s, W: Write, K: AsRef<[u8]>> DictionarySerializer<'s, W, K> {
+    pub(crate) const fn new(serializer: &'s mut Serializer<W>) -> Self {
         Self {
             serializer,
-            last_key: K::default(),
-            dictionary_state: DictionaryState::New,
+            last_key: None,
+            state: State::ExpectingKey,
         }
     }
 
     fn write_key(&mut self, key: &[u8]) -> Result<()> {
-        match self.dictionary_state {
-            DictionaryState::AwaitingValue => return Err(Error::key_without_value()),
-            DictionaryState::New => {}
-            DictionaryState::AwaitingKey => match key.cmp(self.last_key.as_ref()) {
-                Ordering::Less => return Err(Error::unsorted_key()),
-                Ordering::Equal => return Err(Error::duplicate_key()),
-                Ordering::Greater => {}
-            },
+        match self.state {
+            State::ExpectingValue => return Err(Error::key_without_value()),
+            State::ExpectingKey => {
+                if let Some(last_key) = &self.last_key {
+                    match key.cmp(last_key.as_ref()) {
+                        Ordering::Less => return Err(Error::unsorted_key()),
+                        Ordering::Equal => return Err(Error::duplicate_key()),
+                        Ordering::Greater => {}
+                    }
+                }
+            }
         }
         self.serializer.write_token(Token::Bytes(key))?;
-        self.dictionary_state = DictionaryState::AwaitingValue;
+        self.state = State::ExpectingValue;
         Ok(())
     }
 
@@ -41,21 +44,19 @@ impl<'s, W: Write, K: AsRef<[u8]> + Default> DictionarySerializer<'s, W, K> {
     where
         T: ?Sized + Serialize,
     {
-        match self.dictionary_state {
-            DictionaryState::New | DictionaryState::AwaitingKey => {
-                return Err(Error::value_without_key());
-            }
-            DictionaryState::AwaitingValue => {}
+        match self.state {
+            State::ExpectingKey => return Err(Error::value_without_key()),
+            State::ExpectingValue => {}
         }
         value.serialize(&mut *self.serializer)?;
-        self.dictionary_state = DictionaryState::AwaitingKey;
+        self.state = State::ExpectingKey;
         Ok(())
     }
 
     pub(crate) fn finish(self) -> Result<&'s mut Serializer<W>> {
-        match self.dictionary_state {
-            DictionaryState::AwaitingValue => return Err(Error::key_without_value()),
-            DictionaryState::New | DictionaryState::AwaitingKey => {}
+        match self.state {
+            State::ExpectingValue => return Err(Error::key_without_value()),
+            State::ExpectingKey => {}
         }
         self.serializer.write_token(Token::End)?;
         Ok(self.serializer)
@@ -65,7 +66,10 @@ impl<'s, W: Write, K: AsRef<[u8]> + Default> DictionarySerializer<'s, W, K> {
 impl<W: Write> DictionarySerializer<'_, W, Vec<u8>> {
     pub(crate) fn write_transient_key(&mut self, key: &[u8]) -> Result<()> {
         self.write_key(key)?;
-        key.clone_into(&mut self.last_key);
+        match &mut self.last_key {
+            Some(last_key) => key.clone_into(last_key),
+            None => self.last_key = Some(key.to_vec()),
+        }
         Ok(())
     }
 }
@@ -73,7 +77,7 @@ impl<W: Write> DictionarySerializer<'_, W, Vec<u8>> {
 impl<W: Write> DictionarySerializer<'_, W, &'static [u8]> {
     fn write_static_key(&mut self, key: &'static [u8]) -> Result<()> {
         self.write_key(key)?;
-        self.last_key = key;
+        self.last_key = Some(key);
         Ok(())
     }
 }
@@ -121,8 +125,7 @@ impl<W: Write> SerializeStruct for DictionarySerializer<'_, W, &'static [u8]> {
     }
 }
 
-enum DictionaryState {
-    New,
-    AwaitingKey,
-    AwaitingValue,
+enum State {
+    ExpectingKey,
+    ExpectingValue,
 }
