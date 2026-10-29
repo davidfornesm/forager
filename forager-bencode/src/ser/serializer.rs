@@ -218,8 +218,8 @@ impl<'s, W: Write> ser::Serializer for &'s mut Serializer<W> {
     ) -> Result<Self::SerializeTupleVariant> {
         self.write_token(Token::Dictionary)?;
         self.serialize_str(variant)?;
-        let serializer = self.serialize_seq(Some(len))?;
-        Ok(VariantSerializer::new(serializer))
+        let list_serializer = self.serialize_seq(Some(len))?;
+        Ok(VariantSerializer::new(list_serializer))
     }
 
     fn serialize_map(self, _len: Option<usize>) -> Result<Self::SerializeMap> {
@@ -241,8 +241,8 @@ impl<'s, W: Write> ser::Serializer for &'s mut Serializer<W> {
     ) -> Result<Self::SerializeStructVariant> {
         self.write_token(Token::Dictionary)?;
         self.serialize_str(variant)?;
-        let serializer = self.serialize_struct(variant, len)?;
-        Ok(VariantSerializer::new(serializer))
+        let dictionary_serializer = self.serialize_struct(variant, len)?;
+        Ok(VariantSerializer::new(dictionary_serializer))
     }
 
     fn is_human_readable(&self) -> bool {
