@@ -36,11 +36,11 @@ impl<W: Write> Serializer<W> {
 
     pub(crate) fn write_token(&mut self, token: Token<'_>) -> Result<()> {
         match token {
-            Token::Number(number) => {
+            Token::Integer(integer) => {
                 let mut buffer = NumBuffer::new();
                 self.writer.write_all(b"i")?;
                 self.writer
-                    .write_all(number.format_into(&mut buffer).as_bytes())?;
+                    .write_all(integer.format_into(&mut buffer).as_bytes())?;
                 self.writer.write_all(b"e")?;
             }
             Token::Bytes(bytes) => {
@@ -92,11 +92,11 @@ impl<'s, W: Write> ser::Serializer for &'s mut Serializer<W> {
     }
 
     fn serialize_i64(self, v: i64) -> Result<Self::Ok> {
-        self.write_token(Token::Number(v))
+        self.write_token(Token::Integer(v))
     }
 
     fn serialize_i128(self, v: i128) -> Result<Self::Ok> {
-        self.serialize_i64(v.try_into().map_err(|_| Error::number_out_of_range())?)
+        self.serialize_i64(v.try_into().map_err(|_| Error::integer_out_of_range())?)
     }
 
     fn serialize_u8(self, v: u8) -> Result<Self::Ok> {
@@ -112,11 +112,11 @@ impl<'s, W: Write> ser::Serializer for &'s mut Serializer<W> {
     }
 
     fn serialize_u64(self, v: u64) -> Result<Self::Ok> {
-        self.serialize_i64(v.try_into().map_err(|_| Error::number_out_of_range())?)
+        self.serialize_i64(v.try_into().map_err(|_| Error::integer_out_of_range())?)
     }
 
     fn serialize_u128(self, v: u128) -> Result<Self::Ok> {
-        self.serialize_i64(v.try_into().map_err(|_| Error::number_out_of_range())?)
+        self.serialize_i64(v.try_into().map_err(|_| Error::integer_out_of_range())?)
     }
 
     fn serialize_f32(self, _v: f32) -> Result<Self::Ok> {

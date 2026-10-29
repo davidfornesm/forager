@@ -33,7 +33,7 @@ impl Error {
             | Reason::ValueWithoutKey
             | Reason::UnsortedKey
             | Reason::DuplicateKey => Kind::Model,
-            Reason::NumberOutOfRange => Kind::Limit,
+            Reason::IntegerOutOfRange => Kind::Limit,
         }
     }
 
@@ -69,8 +69,8 @@ impl Error {
         Self::new(Reason::DuplicateKey)
     }
 
-    pub(crate) fn number_out_of_range() -> Self {
-        Self::new(Reason::NumberOutOfRange)
+    pub(crate) fn integer_out_of_range() -> Self {
+        Self::new(Reason::IntegerOutOfRange)
     }
 }
 
@@ -85,7 +85,7 @@ impl Display for Error {
             Reason::ValueWithoutKey => f.write_str("value without key"),
             Reason::UnsortedKey => f.write_str("unsorted key"),
             Reason::DuplicateKey => f.write_str("duplicate key"),
-            Reason::NumberOutOfRange => f.write_str("number out of range"),
+            Reason::IntegerOutOfRange => f.write_str("integer out of range"),
         }
     }
 }
@@ -129,5 +129,5 @@ enum Reason {
     ValueWithoutKey,
     UnsortedKey,
     DuplicateKey,
-    NumberOutOfRange,
+    IntegerOutOfRange,
 }
