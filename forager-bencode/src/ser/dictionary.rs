@@ -10,7 +10,7 @@ use std::io::Write;
 pub(crate) struct DictionarySerializer<'s, W, K> {
     serializer: &'s mut Serializer<W>,
     last_key: Option<K>,
-    state: State,
+    next_element: Element,
 }
 
 impl<'s, W: Write, K: AsRef<[u8]>> DictionarySerializer<'s, W, K> {
@@ -18,14 +18,14 @@ impl<'s, W: Write, K: AsRef<[u8]>> DictionarySerializer<'s, W, K> {
         Self {
             serializer,
             last_key: None,
-            state: State::ExpectingKey,
+            next_element: Element::Key,
         }
     }
 
     fn write_key(&mut self, key: &[u8]) -> Result<()> {
-        match self.state {
-            State::ExpectingValue => return Err(Error::key_without_value()),
-            State::ExpectingKey => {
+        match self.next_element {
+            Element::Value => return Err(Error::key_without_value()),
+            Element::Key => {
                 if let Some(last_key) = &self.last_key {
                     match key.cmp(last_key.as_ref()) {
                         Ordering::Less => return Err(Error::unsorted_key()),
@@ -36,7 +36,7 @@ impl<'s, W: Write, K: AsRef<[u8]>> DictionarySerializer<'s, W, K> {
             }
         }
         self.serializer.write_token(Token::Bytes(key))?;
-        self.state = State::ExpectingValue;
+        self.next_element = Element::Value;
         Ok(())
     }
 
@@ -44,19 +44,19 @@ impl<'s, W: Write, K: AsRef<[u8]>> DictionarySerializer<'s, W, K> {
     where
         T: ?Sized + Serialize,
     {
-        match self.state {
-            State::ExpectingKey => return Err(Error::value_without_key()),
-            State::ExpectingValue => {}
+        match self.next_element {
+            Element::Key => return Err(Error::value_without_key()),
+            Element::Value => {}
         }
         value.serialize(&mut *self.serializer)?;
-        self.state = State::ExpectingKey;
+        self.next_element = Element::Key;
         Ok(())
     }
 
     pub(crate) fn finish(self) -> Result<&'s mut Serializer<W>> {
-        match self.state {
-            State::ExpectingValue => return Err(Error::key_without_value()),
-            State::ExpectingKey => {}
+        match self.next_element {
+            Element::Value => return Err(Error::key_without_value()),
+            Element::Key => {}
         }
         self.serializer.write_token(Token::End)?;
         Ok(self.serializer)
@@ -125,7 +125,7 @@ impl<W: Write> SerializeStruct for DictionarySerializer<'_, W, &'static [u8]> {
     }
 }
 
-enum State {
-    ExpectingKey,
-    ExpectingValue,
+enum Element {
+    Key,
+    Value,
 }
