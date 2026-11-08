@@ -22,32 +22,43 @@ impl Error {
         }
     }
 
+    #[must_use]
+    pub fn kind(&self) -> Kind {
+        match self.representation.reason {
+            Reason::Io(_) => Kind::Io,
+            Reason::Message(_)
+            | Reason::Unsupported(_)
+            | Reason::UnsupportedKey(_)
+            | Reason::KeyWithoutValue
+            | Reason::ValueWithoutKey
+            | Reason::UnsortedKey
+            | Reason::DuplicateKey => Kind::Model,
+            Reason::IntegerOutOfRange => Kind::Limit,
+        }
+    }
+
     fn io(error: std::io::Error) -> Self {
         Self::new(Reason::Io(error))
     }
 
-    fn custom(message: Box<str>) -> Self {
-        Self::new(Reason::Custom(message))
+    fn message(message: Box<str>) -> Self {
+        Self::new(Reason::Message(message))
     }
 
-    pub(crate) fn unsupported(message: &'static str) -> Self {
-        Self::new(Reason::Unsupported(message))
+    pub(crate) fn unsupported(name: &'static str) -> Self {
+        Self::new(Reason::Unsupported(name))
     }
 
-    pub(crate) fn unsupported_key(message: &'static str) -> Self {
-        Self::new(Reason::UnsupportedKey(message))
-    }
-
-    pub(crate) fn integer_out_of_range() -> Self {
-        Self::new(Reason::IntegerOutOfRange)
-    }
-
-    pub(crate) fn value_without_key() -> Self {
-        Self::new(Reason::ValueWithoutKey)
+    pub(crate) fn unsupported_key(name: &'static str) -> Self {
+        Self::new(Reason::UnsupportedKey(name))
     }
 
     pub(crate) fn key_without_value() -> Self {
         Self::new(Reason::KeyWithoutValue)
+    }
+
+    pub(crate) fn value_without_key() -> Self {
+        Self::new(Reason::ValueWithoutKey)
     }
 
     pub(crate) fn unsorted_key() -> Self {
@@ -58,19 +69,8 @@ impl Error {
         Self::new(Reason::DuplicateKey)
     }
 
-    #[must_use]
-    pub fn kind(&self) -> Kind {
-        match self.representation.reason {
-            Reason::Io(_) => Kind::Io,
-            Reason::IntegerOutOfRange => Kind::Limit,
-            Reason::Unsupported(_)
-            | Reason::Custom(_)
-            | Reason::KeyWithoutValue
-            | Reason::ValueWithoutKey
-            | Reason::UnsortedKey
-            | Reason::DuplicateKey
-            | Reason::UnsupportedKey(_) => Kind::Model,
-        }
+    pub(crate) fn integer_out_of_range() -> Self {
+        Self::new(Reason::IntegerOutOfRange)
     }
 }
 
@@ -78,14 +78,14 @@ impl Display for Error {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         match &self.representation.reason {
             Reason::Io(_) => f.write_str("io"),
-            Reason::Unsupported(unsupported) => write!(f, "unsupported: {unsupported}"),
-            Reason::UnsupportedKey(unsupported) => write!(f, "unsupported key: {unsupported}"),
-            Reason::Custom(message) => f.write_str(message),
-            Reason::IntegerOutOfRange => f.write_str("integer out of range"),
+            Reason::Message(message) => f.write_str(message),
+            Reason::Unsupported(name) => write!(f, "unsupported: {name}"),
+            Reason::UnsupportedKey(name) => write!(f, "unsupported key: {name}"),
             Reason::KeyWithoutValue => f.write_str("key without value"),
             Reason::ValueWithoutKey => f.write_str("value without key"),
             Reason::UnsortedKey => f.write_str("unsorted key"),
             Reason::DuplicateKey => f.write_str("duplicate key"),
+            Reason::IntegerOutOfRange => f.write_str("integer out of range"),
         }
     }
 }
@@ -104,7 +104,7 @@ impl ser::Error for Error {
     where
         T: Display,
     {
-        Self::custom(msg.to_string().into_boxed_str())
+        Self::message(msg.to_string().into_boxed_str())
     }
 }
 
@@ -122,12 +122,12 @@ struct Representation {
 #[derive(Debug)]
 enum Reason {
     Io(std::io::Error),
+    Message(Box<str>),
     Unsupported(&'static str),
     UnsupportedKey(&'static str),
-    Custom(Box<str>),
-    IntegerOutOfRange,
     KeyWithoutValue,
     ValueWithoutKey,
     UnsortedKey,
     DuplicateKey,
+    IntegerOutOfRange,
 }

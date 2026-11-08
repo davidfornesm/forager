@@ -9,14 +9,77 @@ use std::io::Write;
 
 pub(crate) struct DictionarySerializer<'s, W, K> {
     serializer: &'s mut Serializer<W>,
-    last_key: K,
-    dictionary_state: DictionaryState,
+    last_key: Option<K>,
+    next_element: Element,
 }
 
-enum DictionaryState {
-    New,
-    AwaitingKey,
-    AwaitingValue,
+impl<'s, W: Write, K: AsRef<[u8]>> DictionarySerializer<'s, W, K> {
+    pub(crate) const fn new(serializer: &'s mut Serializer<W>) -> Self {
+        Self {
+            serializer,
+            last_key: None,
+            next_element: Element::Key,
+        }
+    }
+
+    fn write_key(&mut self, key: &[u8]) -> Result<()> {
+        match self.next_element {
+            Element::Value => return Err(Error::key_without_value()),
+            Element::Key => {
+                if let Some(last_key) = &self.last_key {
+                    match key.cmp(last_key.as_ref()) {
+                        Ordering::Less => return Err(Error::unsorted_key()),
+                        Ordering::Equal => return Err(Error::duplicate_key()),
+                        Ordering::Greater => {}
+                    }
+                }
+            }
+        }
+        self.serializer.write_token(Token::Bytes(key))?;
+        self.next_element = Element::Value;
+        Ok(())
+    }
+
+    fn write_value<T>(&mut self, value: &T) -> Result<()>
+    where
+        T: ?Sized + Serialize,
+    {
+        match self.next_element {
+            Element::Key => return Err(Error::value_without_key()),
+            Element::Value => {}
+        }
+        value.serialize(&mut *self.serializer)?;
+        self.next_element = Element::Key;
+        Ok(())
+    }
+
+    pub(crate) fn finish(self) -> Result<&'s mut Serializer<W>> {
+        match self.next_element {
+            Element::Value => return Err(Error::key_without_value()),
+            Element::Key => {}
+        }
+        self.serializer.write_token(Token::End)?;
+        Ok(self.serializer)
+    }
+}
+
+impl<W: Write> DictionarySerializer<'_, W, Vec<u8>> {
+    pub(crate) fn write_transient_key(&mut self, key: &[u8]) -> Result<()> {
+        self.write_key(key)?;
+        match &mut self.last_key {
+            Some(last_key) => key.clone_into(last_key),
+            None => self.last_key = Some(key.to_vec()),
+        }
+        Ok(())
+    }
+}
+
+impl<W: Write> DictionarySerializer<'_, W, &'static [u8]> {
+    fn write_static_key(&mut self, key: &'static [u8]) -> Result<()> {
+        self.write_key(key)?;
+        self.last_key = Some(key);
+        Ok(())
+    }
 }
 
 impl<W: Write> SerializeMap for DictionarySerializer<'_, W, Vec<u8>> {
@@ -62,67 +125,7 @@ impl<W: Write> SerializeStruct for DictionarySerializer<'_, W, &'static [u8]> {
     }
 }
 
-impl<W: Write> DictionarySerializer<'_, W, Vec<u8>> {
-    pub(crate) fn write_transient_key(&mut self, key: &[u8]) -> Result<()> {
-        self.write_key(key)?;
-        key.clone_into(&mut self.last_key);
-        Ok(())
-    }
-}
-
-impl<W: Write> DictionarySerializer<'_, W, &'static [u8]> {
-    fn write_static_key(&mut self, key: &'static [u8]) -> Result<()> {
-        self.write_key(key)?;
-        self.last_key = key;
-        Ok(())
-    }
-}
-
-impl<'s, W: Write, K: AsRef<[u8]> + Default> DictionarySerializer<'s, W, K> {
-    pub(crate) fn new(serializer: &'s mut Serializer<W>) -> Self {
-        Self {
-            serializer,
-            last_key: K::default(),
-            dictionary_state: DictionaryState::New,
-        }
-    }
-
-    fn write_key(&mut self, key: &[u8]) -> Result<()> {
-        match self.dictionary_state {
-            DictionaryState::AwaitingValue => return Err(Error::key_without_value()),
-            DictionaryState::New => {}
-            DictionaryState::AwaitingKey => match key.cmp(self.last_key.as_ref()) {
-                Ordering::Less => return Err(Error::unsorted_key()),
-                Ordering::Equal => return Err(Error::duplicate_key()),
-                Ordering::Greater => {}
-            },
-        }
-        self.serializer.write_token(Token::Bytes(key))?;
-        self.dictionary_state = DictionaryState::AwaitingValue;
-        Ok(())
-    }
-
-    fn write_value<T>(&mut self, value: &T) -> Result<()>
-    where
-        T: ?Sized + Serialize,
-    {
-        match self.dictionary_state {
-            DictionaryState::New | DictionaryState::AwaitingKey => Err(Error::value_without_key()),
-            DictionaryState::AwaitingValue => {
-                value.serialize(&mut *self.serializer)?;
-                self.dictionary_state = DictionaryState::AwaitingKey;
-                Ok(())
-            }
-        }
-    }
-
-    pub(crate) fn finish(self) -> Result<&'s mut Serializer<W>> {
-        match self.dictionary_state {
-            DictionaryState::AwaitingValue => Err(Error::key_without_value()),
-            DictionaryState::New | DictionaryState::AwaitingKey => {
-                self.serializer.write_token(Token::End)?;
-                Ok(self.serializer)
-            }
-        }
-    }
+enum Element {
+    Key,
+    Value,
 }

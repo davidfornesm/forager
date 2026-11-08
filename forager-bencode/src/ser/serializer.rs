@@ -1,6 +1,5 @@
 use crate::ser::dictionary::DictionarySerializer;
-use crate::ser::error::Error;
-use crate::ser::error::Result;
+use crate::ser::error::{Error, Result};
 use crate::ser::list::ListSerializer;
 use crate::ser::variant::VariantSerializer;
 use crate::token::Token;
@@ -28,6 +27,41 @@ where
 
 pub(crate) struct Serializer<W> {
     writer: W,
+}
+
+impl<W: Write> Serializer<W> {
+    const fn new(writer: W) -> Self {
+        Self { writer }
+    }
+
+    pub(crate) fn write_token(&mut self, token: Token<'_>) -> Result<()> {
+        match token {
+            Token::Integer(integer) => {
+                let mut buffer = NumBuffer::new();
+                self.writer.write_all(b"i")?;
+                self.writer
+                    .write_all(integer.format_into(&mut buffer).as_bytes())?;
+                self.writer.write_all(b"e")?;
+            }
+            Token::Bytes(bytes) => {
+                let mut buffer = NumBuffer::new();
+                self.writer
+                    .write_all(bytes.len().format_into(&mut buffer).as_bytes())?;
+                self.writer.write_all(b":")?;
+                self.writer.write_all(bytes)?;
+            }
+            Token::List => {
+                self.writer.write_all(b"l")?;
+            }
+            Token::Dictionary => {
+                self.writer.write_all(b"d")?;
+            }
+            Token::End => {
+                self.writer.write_all(b"e")?;
+            }
+        }
+        Ok(())
+    }
 }
 
 impl<'s, W: Write> ser::Serializer for &'s mut Serializer<W> {
@@ -58,7 +92,7 @@ impl<'s, W: Write> ser::Serializer for &'s mut Serializer<W> {
     }
 
     fn serialize_i64(self, v: i64) -> Result<Self::Ok> {
-        self.write_token(Token::Number(v))
+        self.write_token(Token::Integer(v))
     }
 
     fn serialize_i128(self, v: i128) -> Result<Self::Ok> {
@@ -184,8 +218,8 @@ impl<'s, W: Write> ser::Serializer for &'s mut Serializer<W> {
     ) -> Result<Self::SerializeTupleVariant> {
         self.write_token(Token::Dictionary)?;
         self.serialize_str(variant)?;
-        let serializer = self.serialize_seq(Some(len))?;
-        Ok(VariantSerializer::new(serializer))
+        let list_serializer = self.serialize_seq(Some(len))?;
+        Ok(VariantSerializer::new(list_serializer))
     }
 
     fn serialize_map(self, _len: Option<usize>) -> Result<Self::SerializeMap> {
@@ -207,50 +241,11 @@ impl<'s, W: Write> ser::Serializer for &'s mut Serializer<W> {
     ) -> Result<Self::SerializeStructVariant> {
         self.write_token(Token::Dictionary)?;
         self.serialize_str(variant)?;
-        let serializer = self.serialize_struct(variant, len)?;
-        Ok(VariantSerializer::new(serializer))
+        let dictionary_serializer = self.serialize_struct(variant, len)?;
+        Ok(VariantSerializer::new(dictionary_serializer))
     }
 
     fn is_human_readable(&self) -> bool {
         false
-    }
-}
-
-impl<W: Write> Serializer<W> {
-    fn new(writer: W) -> Self {
-        Self { writer }
-    }
-
-    pub(crate) fn write_token(&mut self, token: Token) -> Result<()> {
-        match token {
-            Token::Number(number) => {
-                let mut buffer = NumBuffer::new();
-                self.writer.write_all(b"i")?;
-                self.writer
-                    .write_all(number.format_into(&mut buffer).as_bytes())?;
-                self.writer.write_all(b"e")?;
-                Ok(())
-            }
-            Token::Bytes(bytes) => {
-                let mut buffer = NumBuffer::new();
-                self.writer
-                    .write_all(bytes.len().format_into(&mut buffer).as_bytes())?;
-                self.writer.write_all(b":")?;
-                self.writer.write_all(bytes)?;
-                Ok(())
-            }
-            Token::List => {
-                self.writer.write_all(b"l")?;
-                Ok(())
-            }
-            Token::Dictionary => {
-                self.writer.write_all(b"d")?;
-                Ok(())
-            }
-            Token::End => {
-                self.writer.write_all(b"e")?;
-                Ok(())
-            }
-        }
     }
 }
